@@ -119,18 +119,23 @@ function EstudioPage() {
   async function publishNow() {
     if (!episodeId || selectedNets.length === 0) return;
     setBusy(true);
+    const publishers: Record<string, string> = { youtube: "youtube-publish", x: "x-publish" };
+    let ok = 0;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Não autenticado");
-      const rows = selectedNets.map(n => ({
-        user_id: user.id, episode_id: episodeId, network: n as any,
-        scheduled_at: new Date().toISOString(), status: "published" as const,
-      }));
-      const { error } = await supabase.from("scheduled_posts").insert(rows);
-      if (error) throw error;
-      await supabase.from("episodes").update({ status: "published" }).eq("id", episodeId);
-      toast.success("Publicado nas redes selecionadas.");
-      nav({ to: "/painel" });
+      for (const n of selectedNets) {
+        const fn = publishers[n];
+        if (!fn) { toast.message(`${networkLabel(n as any)}: publicação direta em breve.`); continue; }
+        const { data, error } = await supabase.functions.invoke(fn, { body: { episode_id: episodeId } });
+        if (error) {
+          let msg = error.message;
+          try { const j = await (error as any).context?.json?.(); if (j?.error) msg = j.error; } catch { /* ignore */ }
+          toast.error(`${networkLabel(n as any)}: ${msg}`);
+          continue;
+        }
+        ok++;
+        toast.success(`${networkLabel(n as any)}: publicado${(data as any)?.url ? " — " + (data as any).url : ""}.`);
+      }
+      if (ok > 0) nav({ to: "/painel" });
     } catch (e: any) { toast.error(e.message ?? "Falha"); }
     finally { setBusy(false); }
   }
