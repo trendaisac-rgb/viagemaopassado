@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     } else if (platform === "x") {
       const cid = Deno.env.get("X_CLIENT_ID");
       if (!cid) return json({ error: "Configure X_CLIENT_ID e X_CLIENT_SECRET nos secrets do Supabase." }, 400);
-      const p = new URLSearchParams({ response_type: "code", client_id: cid, redirect_uri: CB, scope: "tweet.read tweet.write users.read offline.access", state, code_challenge: challenge, code_challenge_method: "S256" });
+      const p = new URLSearchParams({ response_type: "code", client_id: cid, redirect_uri: CB, scope: "tweet.read tweet.write users.read media.write offline.access", state, code_challenge: challenge, code_challenge_method: "S256" });
       url = `https://twitter.com/i/oauth2/authorize?${p}`;
     } else {
       return json({ error: "Instagram/TikTok exigem aprovação da plataforma — em breve." }, 400);
