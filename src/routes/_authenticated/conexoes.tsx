@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { NETWORKS, NetworkBadge, networkLabel } from "@/components/NetworkBadge";
 import { toast } from "sonner";
-import { Plug, Check } from "lucide-react";
+import { Plug, Check, Loader2 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type Net = Database["public"]["Enums"]["network_kind"];
@@ -14,10 +15,10 @@ export const Route = createFileRoute("/_authenticated/conexoes")({
 });
 
 const notes: Record<Net, string> = {
-  x: "OAuth direto. Posts em texto e vídeo até 2:20.",
-  youtube: "OAuth direto. Shorts até 60s.",
-  instagram: "Requer conta Business + revisão da Meta.",
-  tiktok: "Requer auditoria para postar diretamente.",
+  youtube: "OAuth direto (grátis). Shorts até 60s. App não verificado sobe vídeo como privado até a revisão do Google.",
+  x: "OAuth pronto, mas a API da X é paga (pay-per-use ~US$0,015/post). Texto OK; vídeo exige fluxo extra.",
+  instagram: "Requer conta Business + Página do Facebook + revisão da Meta (semanas).",
+  tiktok: "Requer auditoria do app (semanas). Antes disso, posts ficam privados (SELF_ONLY).",
 };
 
 function Page() {
@@ -27,18 +28,39 @@ function Page() {
     queryFn: async () => (await supabase.from("networks").select("*")).data ?? [],
   });
 
-  async function toggle(n: Net, current?: any) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    if (current?.status === "connected") {
-      await supabase.from("networks").update({ status: "disconnected", connected_at: null }).eq("id", current.id);
-      toast.success(`${networkLabel(n)} desconectado.`);
-    } else {
-      const payload = { user_id: user.id, network: n, status: "connected" as const, handle: `@viagemaopassado`, connected_at: new Date().toISOString() };
-      if (current?.id) await supabase.from("networks").update(payload).eq("id", current.id);
-      else await supabase.from("networks").insert(payload);
-      toast.success(`${networkLabel(n)} conectado.`);
+  // Trata o retorno do callback OAuth (?connected=... / ?error=...)
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const connected = sp.get("connected");
+    const err = sp.get("error");
+    if (connected) {
+      toast.success(`${networkLabel(connected as Net)} conectado.`);
+      qc.invalidateQueries({ queryKey: ["networks"] });
+    } else if (err) {
+      toast.error(`Falha ao conectar: ${err}`);
     }
+    if (connected || err) {
+      window.history.replaceState({}, "", "/conexoes");
+    }
+  }, [qc]);
+
+  async function connect(n: Net) {
+    // Inicia o fluxo OAuth real via edge function; redireciona o navegador pro provedor.
+    const { data: res, error } = await supabase.functions.invoke("social-oauth-start", { body: { platform: n } });
+    if (error) {
+      let msg = error.message;
+      try { const j = await (error as any).context?.json?.(); if (j?.error) msg = j.error; } catch { /* ignore */ }
+      toast.error(msg ?? "Falha ao iniciar conexão.");
+      return;
+    }
+    if (res?.url) { window.location.href = res.url as string; return; }
+    toast.error(res?.error ?? "Falha ao iniciar conexão.");
+  }
+
+  async function disconnect(current: any) {
+    // Marca como desconectado no app. (A revogação do token no provedor fica para uma função dedicada.)
+    await supabase.from("networks").update({ status: "disconnected", connected_at: null }).eq("id", current.id);
+    toast.success("Rede desconectada.");
     qc.invalidateQueries({ queryKey: ["networks"] });
   }
 
@@ -47,7 +69,7 @@ function Page() {
       <header className="mb-6">
         <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-heading">Conexões</div>
         <h1 className="font-display text-4xl mt-1">Redes sociais</h1>
-        <p className="text-sm text-muted-foreground mt-1">Conecte suas contas para publicar direto.</p>
+        <p className="text-sm text-muted-foreground mt-1">Conecte suas contas para publicar direto. Comece pelo YouTube (grátis).</p>
       </header>
 
       <div className="grid sm:grid-cols-2 gap-4">
@@ -75,9 +97,10 @@ function Page() {
               {connected && cur?.handle && (
                 <div className="mt-3 text-sm text-[var(--primary)] font-medium">{cur.handle}</div>
               )}
-              <button onClick={()=>toggle(n, cur)} disabled={isLoading}
+              <button onClick={() => (connected && cur ? disconnect(cur) : connect(n))} disabled={isLoading}
                 className={`${connected ? "ghost-btn" : "gold-btn"} mt-4 w-full px-4 py-2 text-sm inline-flex items-center justify-center gap-2`}>
-                <Plug size={14}/> {connected ? "Desconectar" : "Conectar"}
+                {isLoading ? <Loader2 size={14} className="animate-spin"/> : <Plug size={14}/>}
+                {connected ? "Desconectar" : "Conectar"}
               </button>
             </div>
           );
