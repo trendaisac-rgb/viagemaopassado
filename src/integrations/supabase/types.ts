@@ -14,16 +14,366 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_jobs: {
+        Row: {
+          created_at: string
+          episode_id: string | null
+          error: string | null
+          id: string
+          input: Json | null
+          kind: Database["public"]["Enums"]["ai_job_kind"]
+          output: Json | null
+          status: Database["public"]["Enums"]["ai_job_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id?: string | null
+          error?: string | null
+          id?: string
+          input?: Json | null
+          kind: Database["public"]["Enums"]["ai_job_kind"]
+          output?: Json | null
+          status?: Database["public"]["Enums"]["ai_job_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string | null
+          error?: string | null
+          id?: string
+          input?: Json | null
+          kind?: Database["public"]["Enums"]["ai_job_kind"]
+          output?: Json | null
+          status?: Database["public"]["Enums"]["ai_job_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_jobs_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comments: {
+        Row: {
+          author: string
+          body: string
+          created_at: string
+          episode_id: string | null
+          id: string
+          network: Database["public"]["Enums"]["network_kind"]
+          post_url: string | null
+          replied: boolean | null
+          sentiment: Database["public"]["Enums"]["sentiment"] | null
+          user_id: string
+        }
+        Insert: {
+          author: string
+          body: string
+          created_at?: string
+          episode_id?: string | null
+          id?: string
+          network: Database["public"]["Enums"]["network_kind"]
+          post_url?: string | null
+          replied?: boolean | null
+          sentiment?: Database["public"]["Enums"]["sentiment"] | null
+          user_id: string
+        }
+        Update: {
+          author?: string
+          body?: string
+          created_at?: string
+          episode_id?: string | null
+          id?: string
+          network?: Database["public"]["Enums"]["network_kind"]
+          post_url?: string | null
+          replied?: boolean | null
+          sentiment?: Database["public"]["Enums"]["sentiment"] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      episodes: {
+        Row: {
+          angle: string | null
+          aspect: string | null
+          caption: string | null
+          created_at: string
+          duration_s: number | null
+          hashtags: string[] | null
+          id: string
+          progress_pct: number | null
+          progress_step: string | null
+          script: string | null
+          status: Database["public"]["Enums"]["episode_status"]
+          thumb_url: string | null
+          title: string
+          topic: string | null
+          updated_at: string
+          user_id: string
+          video_url: string | null
+          voice: string | null
+        }
+        Insert: {
+          angle?: string | null
+          aspect?: string | null
+          caption?: string | null
+          created_at?: string
+          duration_s?: number | null
+          hashtags?: string[] | null
+          id?: string
+          progress_pct?: number | null
+          progress_step?: string | null
+          script?: string | null
+          status?: Database["public"]["Enums"]["episode_status"]
+          thumb_url?: string | null
+          title: string
+          topic?: string | null
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+          voice?: string | null
+        }
+        Update: {
+          angle?: string | null
+          aspect?: string | null
+          caption?: string | null
+          created_at?: string
+          duration_s?: number | null
+          hashtags?: string[] | null
+          id?: string
+          progress_pct?: number | null
+          progress_step?: string | null
+          script?: string | null
+          status?: Database["public"]["Enums"]["episode_status"]
+          thumb_url?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+          voice?: string | null
+        }
+        Relationships: []
+      }
+      metrics: {
+        Row: {
+          comments: number | null
+          created_at: string
+          date: string
+          episode_id: string | null
+          followers: number | null
+          id: string
+          likes: number | null
+          network: Database["public"]["Enums"]["network_kind"]
+          retention_pct: number | null
+          shares: number | null
+          user_id: string
+          views: number | null
+        }
+        Insert: {
+          comments?: number | null
+          created_at?: string
+          date: string
+          episode_id?: string | null
+          followers?: number | null
+          id?: string
+          likes?: number | null
+          network: Database["public"]["Enums"]["network_kind"]
+          retention_pct?: number | null
+          shares?: number | null
+          user_id: string
+          views?: number | null
+        }
+        Update: {
+          comments?: number | null
+          created_at?: string
+          date?: string
+          episode_id?: string | null
+          followers?: number | null
+          id?: string
+          likes?: number | null
+          network?: Database["public"]["Enums"]["network_kind"]
+          retention_pct?: number | null
+          shares?: number | null
+          user_id?: string
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      networks: {
+        Row: {
+          connected_at: string | null
+          created_at: string
+          handle: string | null
+          id: string
+          network: Database["public"]["Enums"]["network_kind"]
+          status: Database["public"]["Enums"]["network_status"]
+          token_ref: string | null
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string | null
+          created_at?: string
+          handle?: string | null
+          id?: string
+          network: Database["public"]["Enums"]["network_kind"]
+          status?: Database["public"]["Enums"]["network_status"]
+          token_ref?: string | null
+          user_id: string
+        }
+        Update: {
+          connected_at?: string | null
+          created_at?: string
+          handle?: string | null
+          id?: string
+          network?: Database["public"]["Enums"]["network_kind"]
+          status?: Database["public"]["Enums"]["network_status"]
+          token_ref?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          brand_name: string | null
+          brand_voice: string | null
+          created_at: string
+          defaults: Json | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          brand_name?: string | null
+          brand_voice?: string | null
+          created_at?: string
+          defaults?: Json | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          brand_name?: string | null
+          brand_voice?: string | null
+          created_at?: string
+          defaults?: Json | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      scheduled_posts: {
+        Row: {
+          created_at: string
+          episode_id: string
+          external_id: string | null
+          id: string
+          network: Database["public"]["Enums"]["network_kind"]
+          scheduled_at: string
+          status: Database["public"]["Enums"]["post_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          external_id?: string | null
+          id?: string
+          network: Database["public"]["Enums"]["network_kind"]
+          scheduled_at: string
+          status?: Database["public"]["Enums"]["post_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          external_id?: string | null
+          id?: string
+          network?: Database["public"]["Enums"]["network_kind"]
+          scheduled_at?: string
+          status?: Database["public"]["Enums"]["post_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      ai_job_kind: "angles" | "script" | "caption" | "render"
+      ai_job_status: "queued" | "running" | "done" | "failed"
+      app_role: "admin" | "user"
+      episode_status: "draft" | "generating" | "ready" | "published" | "failed"
+      network_kind: "x" | "youtube" | "instagram" | "tiktok"
+      network_status: "connected" | "disconnected" | "pending"
+      post_status: "scheduled" | "publishing" | "published" | "failed"
+      sentiment: "pos" | "neu" | "neg"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +500,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      ai_job_kind: ["angles", "script", "caption", "render"],
+      ai_job_status: ["queued", "running", "done", "failed"],
+      app_role: ["admin", "user"],
+      episode_status: ["draft", "generating", "ready", "published", "failed"],
+      network_kind: ["x", "youtube", "instagram", "tiktok"],
+      network_status: ["connected", "disconnected", "pending"],
+      post_status: ["scheduled", "publishing", "published", "failed"],
+      sentiment: ["pos", "neu", "neg"],
+    },
   },
 } as const
