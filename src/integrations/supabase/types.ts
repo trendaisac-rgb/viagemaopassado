@@ -364,6 +364,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      seed_demo_for_user: { Args: { _uid: string }; Returns: undefined }
     }
     Enums: {
       ai_job_kind: "angles" | "script" | "caption" | "render"
