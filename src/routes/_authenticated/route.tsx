@@ -5,9 +5,12 @@ import { AppSidebar } from "@/components/AppSidebar";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    // Sem tela de login por enquanto: garante uma sessão (anônima) automaticamente.
+    const { data } = await supabase.auth.getUser();
+    if (data.user) return { user: data.user };
+    const { data: anon, error } = await supabase.auth.signInAnonymously();
+    if (error || !anon.user) throw redirect({ to: "/auth" }); // fallback se anon estiver desabilitado no Supabase
+    return { user: anon.user };
   },
   component: AuthedLayout,
 });
@@ -22,4 +25,3 @@ function AuthedLayout() {
     </div>
   );
 }
-
