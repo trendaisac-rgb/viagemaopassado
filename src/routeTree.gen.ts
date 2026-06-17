@@ -9,38 +9,174 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
+import { Route as AuthenticatedEstudioRouteImport } from './routes/_authenticated/estudio'
+import { Route as AuthenticatedEpisodiosRouteImport } from './routes/_authenticated/episodios'
+import { Route as AuthenticatedConexoesRouteImport } from './routes/_authenticated/conexoes'
+import { Route as AuthenticatedComentariosRouteImport } from './routes/_authenticated/comentarios'
+import { Route as AuthenticatedAnalisesRouteImport } from './routes/_authenticated/analises'
+import { Route as AuthenticatedAjustesRouteImport } from './routes/_authenticated/ajustes'
+import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEstudioRoute = AuthenticatedEstudioRouteImport.update({
+  id: '/estudio',
+  path: '/estudio',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEpisodiosRoute = AuthenticatedEpisodiosRouteImport.update({
+  id: '/episodios',
+  path: '/episodios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConexoesRoute = AuthenticatedConexoesRouteImport.update({
+  id: '/conexoes',
+  path: '/conexoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedComentariosRoute =
+  AuthenticatedComentariosRouteImport.update({
+    id: '/comentarios',
+    path: '/comentarios',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAnalisesRoute = AuthenticatedAnalisesRouteImport.update({
+  id: '/analises',
+  path: '/analises',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAjustesRoute = AuthenticatedAjustesRouteImport.update({
+  id: '/ajustes',
+  path: '/ajustes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
+  '/ajustes': typeof AuthenticatedAjustesRoute
+  '/analises': typeof AuthenticatedAnalisesRoute
+  '/comentarios': typeof AuthenticatedComentariosRoute
+  '/conexoes': typeof AuthenticatedConexoesRoute
+  '/episodios': typeof AuthenticatedEpisodiosRoute
+  '/estudio': typeof AuthenticatedEstudioRoute
+  '/painel': typeof AuthenticatedPainelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
+  '/ajustes': typeof AuthenticatedAjustesRoute
+  '/analises': typeof AuthenticatedAnalisesRoute
+  '/comentarios': typeof AuthenticatedComentariosRoute
+  '/conexoes': typeof AuthenticatedConexoesRoute
+  '/episodios': typeof AuthenticatedEpisodiosRoute
+  '/estudio': typeof AuthenticatedEstudioRoute
+  '/painel': typeof AuthenticatedPainelRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
+  '/_authenticated/ajustes': typeof AuthenticatedAjustesRoute
+  '/_authenticated/analises': typeof AuthenticatedAnalisesRoute
+  '/_authenticated/comentarios': typeof AuthenticatedComentariosRoute
+  '/_authenticated/conexoes': typeof AuthenticatedConexoesRoute
+  '/_authenticated/episodios': typeof AuthenticatedEpisodiosRoute
+  '/_authenticated/estudio': typeof AuthenticatedEstudioRoute
+  '/_authenticated/painel': typeof AuthenticatedPainelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/agenda'
+    | '/ajustes'
+    | '/analises'
+    | '/comentarios'
+    | '/conexoes'
+    | '/episodios'
+    | '/estudio'
+    | '/painel'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/agenda'
+    | '/ajustes'
+    | '/analises'
+    | '/comentarios'
+    | '/conexoes'
+    | '/episodios'
+    | '/estudio'
+    | '/painel'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/agenda'
+    | '/_authenticated/ajustes'
+    | '/_authenticated/analises'
+    | '/_authenticated/comentarios'
+    | '/_authenticated/conexoes'
+    | '/_authenticated/episodios'
+    | '/_authenticated/estudio'
+    | '/_authenticated/painel'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +184,94 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/painel': {
+      id: '/_authenticated/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof AuthenticatedPainelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/estudio': {
+      id: '/_authenticated/estudio'
+      path: '/estudio'
+      fullPath: '/estudio'
+      preLoaderRoute: typeof AuthenticatedEstudioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/episodios': {
+      id: '/_authenticated/episodios'
+      path: '/episodios'
+      fullPath: '/episodios'
+      preLoaderRoute: typeof AuthenticatedEpisodiosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/conexoes': {
+      id: '/_authenticated/conexoes'
+      path: '/conexoes'
+      fullPath: '/conexoes'
+      preLoaderRoute: typeof AuthenticatedConexoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/comentarios': {
+      id: '/_authenticated/comentarios'
+      path: '/comentarios'
+      fullPath: '/comentarios'
+      preLoaderRoute: typeof AuthenticatedComentariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/analises': {
+      id: '/_authenticated/analises'
+      path: '/analises'
+      fullPath: '/analises'
+      preLoaderRoute: typeof AuthenticatedAnalisesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ajustes': {
+      id: '/_authenticated/ajustes'
+      path: '/ajustes'
+      fullPath: '/ajustes'
+      preLoaderRoute: typeof AuthenticatedAjustesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/agenda': {
+      id: '/_authenticated/agenda'
+      path: '/agenda'
+      fullPath: '/agenda'
+      preLoaderRoute: typeof AuthenticatedAgendaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
+  AuthenticatedAjustesRoute: typeof AuthenticatedAjustesRoute
+  AuthenticatedAnalisesRoute: typeof AuthenticatedAnalisesRoute
+  AuthenticatedComentariosRoute: typeof AuthenticatedComentariosRoute
+  AuthenticatedConexoesRoute: typeof AuthenticatedConexoesRoute
+  AuthenticatedEpisodiosRoute: typeof AuthenticatedEpisodiosRoute
+  AuthenticatedEstudioRoute: typeof AuthenticatedEstudioRoute
+  AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
+  AuthenticatedAjustesRoute: AuthenticatedAjustesRoute,
+  AuthenticatedAnalisesRoute: AuthenticatedAnalisesRoute,
+  AuthenticatedComentariosRoute: AuthenticatedComentariosRoute,
+  AuthenticatedConexoesRoute: AuthenticatedConexoesRoute,
+  AuthenticatedEpisodiosRoute: AuthenticatedEpisodiosRoute,
+  AuthenticatedEstudioRoute: AuthenticatedEstudioRoute,
+  AuthenticatedPainelRoute: AuthenticatedPainelRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
