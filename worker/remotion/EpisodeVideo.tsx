@@ -14,7 +14,8 @@ export const calcMeta = async ({ props }: any) => {
   const fps = 30, lead = 45, tail = 30;
   let dur = 40;
   try { if (props.narrationUrl) dur = await getAudioDurationInSeconds(props.narrationUrl); } catch (_) {}
-  return { durationInFrames: Math.round(lead + dur * fps + tail) };
+  const sped = dur / 1.18; // ritmo aprovado da skill (atempo 1.18)
+  return { durationInFrames: Math.round(lead + sped * fps + tail) };
 };
 
 const words = (t: string) => t.split(/\s+/).filter(Boolean).length;
@@ -66,7 +67,7 @@ export const EpisodeVideo: React.FC<{ script: string; title: string; narrationUr
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: inter }}>
       <AbsoluteFill style={{ background: "radial-gradient(120% 80% at 50% 0%, rgba(233,184,74,0.12), transparent 60%)" }} />
-      {narrationUrl ? <Sequence from={lead}><Audio src={narrationUrl} /></Sequence> : null}
+      {narrationUrl ? <Sequence from={lead}><Audio src={narrationUrl} playbackRate={1.18} /></Sequence> : null}
       <Sequence from={0} durationInFrames={lead + fps * 2}><Hook text={beats[0] ?? title} /></Sequence>
       {beats.map((b, i) => (
         <Sequence key={i} from={lead + i * per} durationInFrames={per}><Beat text={b} /></Sequence>
