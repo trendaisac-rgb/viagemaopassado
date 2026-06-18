@@ -90,18 +90,27 @@ async function xUploadVideo(access: string, bytes: Uint8Array): Promise<string> 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
-    const userClient = createClient(SUPA_URL, ANON, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: "não autenticado" }, 401);
-    const { episode_id, text } = await req.json();
+    const authz = req.headers.get("Authorization") ?? "";
+    const isService = authz === "Bearer " + SERVICE;
+    const reqBody = await req.json();
+    const { episode_id, text } = reqBody;
+    let uid = "";
+    if (isService) { uid = reqBody.user_id; }
+    else {
+      const userClient = createClient(SUPA_URL, ANON, { global: { headers: { Authorization: authz } } });
+      const gu = await userClient.auth.getUser();
+      if (!gu.data.user) return json({ error: "não autenticado" }, 401);
+      uid = gu.data.user.id;
+    }
+    if (!uid) return json({ error: "user_id faltando" }, 400);
     if (!episode_id) return json({ error: "episode_id faltando" }, 400);
     if (!Deno.env.get("X_CLIENT_ID")) return json({ error: "Configure X_CLIENT_ID/SECRET nos secrets do Supabase." }, 400);
 
     const admin = createClient(SUPA_URL, SERVICE);
-    const { data: ep } = await admin.from("episodes").select("*").eq("id", episode_id).eq("user_id", user.id).single();
+    const { data: ep } = await admin.from("episodes").select("*").eq("id", episode_id).eq("user_id", uid).single();
     if (!ep) return json({ error: "episódio não encontrado" }, 404);
 
-    const { data: tok } = await admin.from("social_tokens").select("*").eq("user_id", user.id).eq("platform", "x").single();
+    const { data: tok } = await admin.from("social_tokens").select("*").eq("user_id", uid).eq("platform", "x").single();
     if (!tok) return json({ error: "X não conectado. Vá em Conexões." }, 400);
 
     const access = await refreshX(admin, tok);
@@ -133,7 +142,7 @@ Deno.serve(async (req) => {
 
     const { data: existing } = await admin.from("scheduled_posts").select("id").eq("episode_id", episode_id).eq("network", "x").maybeSingle();
     if (existing) await admin.from("scheduled_posts").update({ status: "published", external_id: id, scheduled_at: new Date().toISOString() }).eq("id", existing.id);
-    else await admin.from("scheduled_posts").insert({ user_id: user.id, episode_id, network: "x", scheduled_at: new Date().toISOString(), status: "published", external_id: id });
+    else await admin.from("scheduled_posts").insert({ user_id: uid, episode_id, network: "x", scheduled_at: new Date().toISOString(), status: "published", external_id: id });
 
     return json({ url: "https://twitter.com/i/web/status/" + id, id, with_video: media_ids.length > 0 });
   } catch (e) {

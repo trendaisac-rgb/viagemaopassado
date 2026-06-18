@@ -13,6 +13,34 @@ if (!SUPABASE_URL || !KEY) { console.error("Defina SUPABASE_URL e SUPABASE_SERVI
 const admin = createClient(SUPABASE_URL, KEY, { auth: { persistSession: false } });
 const POLL_MS = 8000;
 
+const PUBFN = { youtube: "youtube-publish", x: "x-publish" };
+async function publishDue() {
+  const nowIso = new Date().toISOString();
+  const { data: due } = await admin.from("scheduled_posts").select("*").eq("status", "scheduled").lte("scheduled_at", nowIso).limit(10);
+  for (const post of (due || [])) {
+    const fn = PUBFN[post.network];
+    if (!fn) continue;
+    await admin.from("scheduled_posts").update({ status: "publishing" }).eq("id", post.id);
+    try {
+      const res = await fetch(SUPABASE_URL + "/functions/v1/" + fn, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + KEY, "apikey": KEY },
+        body: JSON.stringify({ episode_id: post.episode_id, user_id: post.user_id }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && !j.error) {
+        await admin.from("scheduled_posts").update({ status: "published", external_id: j.id || null }).eq("id", post.id);
+        console.log("publicado agendado:", post.network, j.url || j.id || "");
+      } else {
+        await admin.from("scheduled_posts").update({ status: "failed", error: String(j.error || res.status).slice(0, 400) }).eq("id", post.id);
+        console.error("agendado falhou:", post.network, j.error);
+      }
+    } catch (e) {
+      await admin.from("scheduled_posts").update({ status: "failed", error: String(e.message).slice(0, 400) }).eq("id", post.id);
+    }
+  }
+}
+
 let serveUrl = null;
 async function getBundle() {
   if (serveUrl) return serveUrl;
@@ -64,6 +92,7 @@ async function loop() {
   console.log("VaP render worker no ar. Aguardando jobs…");
   for (;;) {
     try {
+      await publishDue();
       const job = await claimJob();
       if (job) {
         try { await processJob(job); }

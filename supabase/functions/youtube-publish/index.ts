@@ -43,19 +43,28 @@ async function loadVideoBytes(admin: any, videoUrl: string): Promise<Uint8Array>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
-    const userClient = createClient(SUPA_URL, ANON, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: "não autenticado" }, 401);
-    const { episode_id, privacy } = await req.json();
+    const authz = req.headers.get("Authorization") ?? "";
+    const isService = authz === "Bearer " + SERVICE;
+    const reqBody = await req.json();
+    const { episode_id, privacy } = reqBody;
+    let uid = "";
+    if (isService) { uid = reqBody.user_id; }
+    else {
+      const userClient = createClient(SUPA_URL, ANON, { global: { headers: { Authorization: authz } } });
+      const gu = await userClient.auth.getUser();
+      if (!gu.data.user) return json({ error: "não autenticado" }, 401);
+      uid = gu.data.user.id;
+    }
+    if (!uid) return json({ error: "user_id faltando" }, 400);
     if (!episode_id) return json({ error: "episode_id faltando" }, 400);
     if (!Deno.env.get("YOUTUBE_CLIENT_ID")) return json({ error: "Configure YOUTUBE_CLIENT_ID/SECRET nos secrets do Supabase." }, 400);
 
     const admin = createClient(SUPA_URL, SERVICE);
-    const { data: ep } = await admin.from("episodes").select("*").eq("id", episode_id).eq("user_id", user.id).single();
+    const { data: ep } = await admin.from("episodes").select("*").eq("id", episode_id).eq("user_id", uid).single();
     if (!ep) return json({ error: "episódio não encontrado" }, 404);
     if (!ep.video_url) return json({ error: "episódio sem vídeo renderizado (video_url vazio)" }, 400);
 
-    const { data: tok } = await admin.from("social_tokens").select("*").eq("user_id", user.id).eq("platform", "youtube").single();
+    const { data: tok } = await admin.from("social_tokens").select("*").eq("user_id", uid).eq("platform", "youtube").single();
     if (!tok) return json({ error: "YouTube não conectado. Vá em Conexões." }, 400);
 
     const access = await refreshYouTube(admin, tok);
@@ -83,7 +92,7 @@ Deno.serve(async (req) => {
     await admin.from("episodes").update({ status: "published" }).eq("id", episode_id);
     const { data: existing } = await admin.from("scheduled_posts").select("id").eq("episode_id", episode_id).eq("network", "youtube").maybeSingle();
     if (existing) await admin.from("scheduled_posts").update({ status: "published", external_id: videoId, scheduled_at: new Date().toISOString() }).eq("id", existing.id);
-    else await admin.from("scheduled_posts").insert({ user_id: user.id, episode_id, network: "youtube", scheduled_at: new Date().toISOString(), status: "published", external_id: videoId });
+    else await admin.from("scheduled_posts").insert({ user_id: uid, episode_id, network: "youtube", scheduled_at: new Date().toISOString(), status: "published", external_id: videoId });
 
     return json({ url: `https://youtu.be/${videoId}`, id: videoId, privacy: privacyStatus });
   } catch (e) {

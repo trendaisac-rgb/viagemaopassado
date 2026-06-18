@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Check, FileText, Mic, Clapperboard, Send, ArrowRight, Lock, RotateCcw, Play } from "lucide-react";
+import { Sparkles, Loader2, Check, FileText, Mic, Clapperboard, Send, ArrowRight, Lock, RotateCcw, Play, CalendarClock } from "lucide-react";
 import { NETWORKS, networkLabel, NetworkBadge } from "@/components/NetworkBadge";
 
 export const Route = createFileRoute("/_authenticated/estudio")({
@@ -24,6 +24,7 @@ function EstudioPage() {
   const [busy, setBusy] = useState("");
   const [scriptDraft, setScriptDraft] = useState("");
   const [selectedNets, setSelectedNets] = useState<string[]>(["youtube"]);
+  const [schedAt, setSchedAt] = useState("");
 
   const epq = useQuery({
     queryKey: ["studio-ep", episodeId],
@@ -123,6 +124,20 @@ function EstudioPage() {
       if (error) { let m = error.message; try { const j = await (error as any).context?.json?.(); if (j?.error) m = j.error; } catch { /* */ } toast.error(m); return; }
       toast.success("Imagens geradas: " + ((data as any)?.made ?? 0));
     } finally { setBusy(""); }
+  }
+
+  async function schedule() {
+    if (!episodeId || selectedNets.length === 0 || !schedAt) { toast.error("Escolha redes e um horário."); return; }
+    setBusy("schedule");
+    try {
+      const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
+      const when = new Date(schedAt).toISOString();
+      const rows = selectedNets.map((n) => ({ user_id: user.id, episode_id: episodeId, network: n as any, scheduled_at: when, status: "scheduled" as const }));
+      const { error } = await supabase.from("scheduled_posts").insert(rows);
+      if (error) throw error;
+      toast.success("Agendado! O worker publica no horário.");
+      setSchedAt("");
+    } catch (e: any) { toast.error(e.message); } finally { setBusy(""); }
   }
 
   function reset() { setEpisodeId(null); setAngles([]); setAngle(""); setTopic(""); setScriptDraft(""); }
@@ -245,6 +260,11 @@ function EstudioPage() {
             <button onClick={publish} disabled={!!busy || selectedNets.length === 0} className="gold-btn px-6 py-3 text-sm inline-flex items-center gap-2">
               {busy === "publish" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Publicar agora
             </button>
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <span className="text-xs text-muted-foreground font-heading uppercase tracking-wider">ou agende:</span>
+              <input type="datetime-local" value={schedAt} onChange={(ev) => setSchedAt(ev.target.value)} className="rounded-xl border-2 border-border bg-input px-3 py-2 text-sm" />
+              <button onClick={schedule} disabled={!!busy || !schedAt} className="ghost-btn px-4 py-2 text-sm inline-flex items-center gap-2"><CalendarClock size={14} /> Agendar</button>
+            </div>
           </>}
       </Stage>
     </div>
