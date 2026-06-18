@@ -6,6 +6,11 @@ const CB = `${SUPA_URL}/functions/v1/social-oauth-callback`;
 const APP = Deno.env.get("APP_URL") ?? "http://localhost:8080";
 const redir = (path: string) => new Response(null, { status: 302, headers: { Location: `${APP}${path}` } });
 
+async function creds(admin: any, platform: string, envId: string, envSec: string) {
+  const { data } = await admin.from("integration_credentials").select("client_id, client_secret").eq("platform", platform).maybeSingle();
+  return { id: data?.client_id ?? Deno.env.get(envId) ?? "", sec: data?.client_secret ?? Deno.env.get(envSec) ?? "" };
+}
+
 Deno.serve(async (req) => {
   const u = new URL(req.url);
   const code = u.searchParams.get("code");
@@ -24,8 +29,8 @@ Deno.serve(async (req) => {
     let meta: Record<string, unknown> = {};
 
     if (platform === "youtube") {
-      const id = Deno.env.get("YOUTUBE_CLIENT_ID")!, sec = Deno.env.get("YOUTUBE_CLIENT_SECRET")!;
-      const body = new URLSearchParams({ code, client_id: id, client_secret: sec, redirect_uri: CB, grant_type: "authorization_code" });
+      const c = await creds(admin, "youtube", "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET");
+      const body = new URLSearchParams({ code, client_id: c.id, client_secret: c.sec, redirect_uri: CB, grant_type: "authorization_code" });
       const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
       const t = await r.json();
       if (!r.ok) throw new Error(t.error_description || "token youtube");
@@ -36,8 +41,8 @@ Deno.serve(async (req) => {
         const cj = await ch.json(); const title = cj.items?.[0]?.snippet?.title; if (title) handle = title;
       } catch (_) {}
     } else if (platform === "x") {
-      const id = Deno.env.get("X_CLIENT_ID")!, sec = Deno.env.get("X_CLIENT_SECRET")!;
-      const basic = btoa(`${id}:${sec}`);
+      const c = await creds(admin, "x", "X_CLIENT_ID", "X_CLIENT_SECRET");
+      const basic = btoa(`${c.id}:${c.sec}`);
       const body = new URLSearchParams({ code, grant_type: "authorization_code", redirect_uri: CB, code_verifier: st.code_verifier ?? "" });
       const r = await fetch("https://api.twitter.com/2/oauth2/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Basic ${basic}` }, body });
       const t = await r.json();
@@ -49,13 +54,13 @@ Deno.serve(async (req) => {
         const mj = await me.json(); if (mj.data?.username) handle = `@${mj.data.username}`;
       } catch (_) {}
     } else if (platform === "instagram") {
-      const id = Deno.env.get("INSTAGRAM_CLIENT_ID")!, sec = Deno.env.get("INSTAGRAM_CLIENT_SECRET")!;
-      const form = new URLSearchParams({ client_id: id, client_secret: sec, grant_type: "authorization_code", redirect_uri: CB, code });
+      const c = await creds(admin, "instagram", "INSTAGRAM_CLIENT_ID", "INSTAGRAM_CLIENT_SECRET");
+      const form = new URLSearchParams({ client_id: c.id, client_secret: c.sec, grant_type: "authorization_code", redirect_uri: CB, code });
       const r = await fetch("https://api.instagram.com/oauth/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
       const t = await r.json();
       if (!r.ok || !t.access_token) throw new Error(t.error_message || t.error || "token instagram");
       meta = { ig_user_id: String(t.user_id ?? "") };
-      const llRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${sec}&access_token=${t.access_token}`);
+      const llRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${c.sec}&access_token=${t.access_token}`);
       const ll = await llRes.json();
       access = ll.access_token ?? t.access_token;
       if (ll.expires_in) expires_at = new Date(Date.now() + ll.expires_in * 1000).toISOString();
@@ -64,8 +69,8 @@ Deno.serve(async (req) => {
         const mj = await me.json(); if (mj.username) handle = `@${mj.username}`; if (mj.user_id) meta.ig_user_id = String(mj.user_id);
       } catch (_) {}
     } else if (platform === "tiktok") {
-      const ck = Deno.env.get("TIKTOK_CLIENT_KEY")!, sec = Deno.env.get("TIKTOK_CLIENT_SECRET")!;
-      const form = new URLSearchParams({ client_key: ck, client_secret: sec, code, grant_type: "authorization_code", redirect_uri: CB });
+      const c = await creds(admin, "tiktok", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET");
+      const form = new URLSearchParams({ client_key: c.id, client_secret: c.sec, code, grant_type: "authorization_code", redirect_uri: CB });
       const r = await fetch("https://open.tiktokapis.com/v2/oauth/token/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
       const t = await r.json();
       if (!r.ok || !t.access_token) throw new Error(t.error_description || t.error || "token tiktok");
