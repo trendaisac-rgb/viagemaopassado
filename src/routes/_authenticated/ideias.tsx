@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -14,6 +14,7 @@ const FILTERS: [string, string][] = [["suggested","Sugeridas"],["used","Usadas"]
 
 function Page() {
   const qc = useQueryClient();
+  const nav = useNavigate();
   const [theme, setTheme] = useState("");
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("suggested");
@@ -45,13 +46,10 @@ function Page() {
   }
 
   async function approve(idea: any) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { error } = await supabase.from("episodes").insert({ user_id: user.id, title: idea.theme, topic: idea.theme, angle: idea.angle ?? null, status: "draft" });
-    if (error) { toast.error(error.message); return; }
     await supabase.from("content_ideas").update({ status: "used" }).eq("id", idea.id);
-    toast.success("Episódio criado na Biblioteca. Abra o Estúdio para gerar o roteiro/vídeo.");
     qc.invalidateQueries({ queryKey: ["ideas"] });
+    toast.success("Tema aprovado! Vamos pro roteiro.");
+    nav({ to: "/estudio", search: { tema: idea.theme, angulo: idea.angle ?? "" } });
   }
 
   async function reject(id: string) {
