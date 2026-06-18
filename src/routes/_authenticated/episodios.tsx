@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EpisodeCard } from "@/components/EpisodeCard";
 import { EmptyState } from "@/components/EmptyState";
-import { Search, Sparkles, Send, Loader2 } from "lucide-react";
+import { Search, Sparkles, Send, Loader2, Mic } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ function EpisodiosPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [narrating, setNarrating] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["episodes-list"],
@@ -55,6 +56,18 @@ function EpisodiosPage() {
     } finally {
       setPublishing(null);
     }
+  }
+
+  async function narrate(episodeId: string) {
+    setNarrating(episodeId);
+    try {
+      const { data: res, error } = await supabase.functions.invoke("generate-narration", { body: { episode_id: episodeId } });
+      if (error) {
+        let msg = error.message;
+        try { const j = await (error as any).context?.json?.(); if (j?.error) msg = j.error; } catch { /* ignore */ }
+        toast.error(msg);
+      } else { toast.success("Narração gerada (Victor Power)."); }
+    } finally { setNarrating(null); }
   }
 
   const filtered = (data ?? []).filter(e =>
@@ -102,11 +115,16 @@ function EpisodiosPage() {
           {filtered.map(ep => (
             <div key={ep.id} className="flex flex-col gap-2">
               <EpisodeCard ep={ep}/>
-              <button onClick={()=>publishEpisode(ep.id)} disabled={publishing===ep.id}
-                className="ghost-btn px-3 py-1.5 text-xs inline-flex items-center justify-center gap-1.5 disabled:opacity-50">
-                {publishing===ep.id ? <Loader2 size={12} className="animate-spin"/> : <Send size={12}/>}
-                Publicar nas conectadas
-              </button>
+              <div className="flex gap-1.5">
+                <button onClick={()=>narrate(ep.id)} disabled={narrating===ep.id}
+                  className="ghost-btn flex-1 px-2 py-1.5 text-xs inline-flex items-center justify-center gap-1.5 disabled:opacity-50">
+                  {narrating===ep.id ? <Loader2 size={12} className="animate-spin"/> : <Mic size={12}/>} Narração
+                </button>
+                <button onClick={()=>publishEpisode(ep.id)} disabled={publishing===ep.id}
+                  className="gold-btn flex-1 px-2 py-1.5 text-xs inline-flex items-center justify-center gap-1.5 disabled:opacity-50">
+                  {publishing===ep.id ? <Loader2 size={12} className="animate-spin"/> : <Send size={12}/>} Publicar
+                </button>
+              </div>
             </div>
           ))}
         </div>

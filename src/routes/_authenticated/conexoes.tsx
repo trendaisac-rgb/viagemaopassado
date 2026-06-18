@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { NETWORKS, NetworkBadge, networkLabel } from "@/components/NetworkBadge";
 import { toast } from "sonner";
-import { Plug, Check, Loader2, KeyRound, Copy, ExternalLink } from "lucide-react";
+import { Plug, Check, Loader2, KeyRound, Copy, ExternalLink, Mic } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type Net = Database["public"]["Enums"]["network_kind"];
@@ -34,6 +34,8 @@ function Page() {
   const qc = useQueryClient();
   const [forms, setForms] = useState<Record<string, { id: string; secret: string }>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [elForm, setElForm] = useState({ voice: "", key: "" });
+  const [savingEl, setSavingEl] = useState(false);
 
   const { data: networks, isLoading } = useQuery({
     queryKey: ["networks"],
@@ -69,6 +71,19 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["int-status"] });
     } catch (e: any) { toast.error(e.message ?? "Falha ao salvar"); }
     finally { setSaving(null); }
+  }
+
+  async function saveEl() {
+    if (!elForm.voice || !elForm.key) { toast.error("Preencha Voice ID e API Key."); return; }
+    setSavingEl(true);
+    try {
+      const { error } = await supabase.functions.invoke("integrations", { body: { action: "save", platform: "elevenlabs", client_id: elForm.voice.trim(), client_secret: elForm.key.trim() } });
+      if (error) throw error;
+      toast.success("ElevenLabs salvo. Agora gere a narração em Episódios.");
+      setElForm({ voice: "", key: "" });
+      qc.invalidateQueries({ queryKey: ["int-status"] });
+    } catch (e: any) { toast.error(e.message ?? "Falha ao salvar"); }
+    finally { setSavingEl(false); }
   }
 
   async function connect(n: Net) {
@@ -130,6 +145,22 @@ function Page() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="panel p-5 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Mic size={16} className="text-[var(--primary)]"/><span className="font-heading text-lg">Voz — ElevenLabs</span>
+          {configured?.elevenlabs ? <span className="pill" style={{ background: "rgba(57,192,122,0.14)", color: "var(--success)" }}><Check size={10}/> Configurado</span> : null}
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">A narração Victor Power é gerada com a sua conta ElevenLabs. Cole o Voice ID e a API Key.</p>
+        <div className="grid sm:grid-cols-2 gap-2">
+          <input className="ipt" placeholder="Voice ID (a voz Victor Power)" value={elForm.voice} onChange={e=>setElForm(p=>({ ...p, voice: e.target.value }))}/>
+          <input className="ipt" type="password" placeholder="API Key (xi-api-key)" value={elForm.key} onChange={e=>setElForm(p=>({ ...p, key: e.target.value }))}/>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noreferrer" className="text-[11px] text-[var(--ice)] inline-flex items-center gap-1 hover:underline"><ExternalLink size={11}/> pegar API key / voice id</a>
+          <button onClick={saveEl} disabled={savingEl} className="gold-btn px-3 py-1.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-50">{savingEl ? <Loader2 size={12} className="animate-spin"/> : <KeyRound size={12}/>} Salvar</button>
         </div>
       </div>
 
