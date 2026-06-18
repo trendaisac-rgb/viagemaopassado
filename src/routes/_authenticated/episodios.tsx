@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EpisodeCard } from "@/components/EpisodeCard";
 import { EmptyState } from "@/components/EmptyState";
-import { Search, Sparkles, Send, Loader2, Mic } from "lucide-react";
+import { Search, Sparkles, Send, Loader2, Mic, Clapperboard } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -56,6 +56,14 @@ function EpisodiosPage() {
     } finally {
       setPublishing(null);
     }
+  }
+
+  async function renderEp(episodeId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("render_jobs").insert({ user_id: user.id, episode_id: episodeId, status: "queued" });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Na fila de render. Deixe o worker rodando na sua máquina/servidor.");
   }
 
   async function narrate(episodeId: string) {
@@ -115,6 +123,9 @@ function EpisodiosPage() {
           {filtered.map(ep => (
             <div key={ep.id} className="flex flex-col gap-2">
               <EpisodeCard ep={ep}/>
+              <button onClick={()=>renderEp(ep.id)} className="gold-btn px-3 py-1.5 text-xs inline-flex items-center justify-center gap-1.5">
+                <Clapperboard size={12}/> Renderizar
+              </button>
               <div className="flex gap-1.5">
                 <button onClick={()=>narrate(ep.id)} disabled={narrating===ep.id}
                   className="ghost-btn flex-1 px-2 py-1.5 text-xs inline-flex items-center justify-center gap-1.5 disabled:opacity-50">
