@@ -7,6 +7,7 @@ import { NETWORKS, networkLabel, NetworkBadge } from "@/components/NetworkBadge"
 
 export const Route = createFileRoute("/_authenticated/estudio")({
   head: () => ({ meta: [{ title: "Estúdio · Viagem ao Passado" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({ tema: typeof s.tema === "string" ? s.tema : "", angulo: typeof s.angulo === "string" ? s.angulo : "" }),
   component: EstudioPage,
 });
 
@@ -26,9 +27,10 @@ function EstudioPage() {
   const [busy, setBusy] = useState(false);
 
   // state
-  const [topic, setTopic] = useState("");
+  const sp = Route.useSearch();
+  const [topic, setTopic] = useState(sp.tema || "");
   const [angles, setAngles] = useState<string[]>([]);
-  const [angle, setAngle] = useState("");
+  const [angle, setAngle] = useState(sp.angulo || "");
   const [script, setScript] = useState("");
   const [factChecks, setFactChecks] = useState<string[]>([]);
   const [caption, setCaption] = useState("");
