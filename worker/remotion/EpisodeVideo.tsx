@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
+import { AbsoluteFill, Audio, Img, Sequence, useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
 import { getAudioDurationInSeconds } from "@remotion/media-utils";
 import { loadFont as loadAnton } from "@remotion/google-fonts/Anton";
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
@@ -42,10 +42,18 @@ const Caption: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-const VideoScene: React.FC<{ i: number }> = ({ i }) => {
+const VideoScene: React.FC<{ i: number; src?: string }> = ({ i, src }) => {
   const f = useCurrentFrame();
-  const s = interpolate(f, [0, 120], [1.12, 1.22]);
+  const s = interpolate(f, [0, 120], [1.12, 1.26]);
   const a = (i * 47) % 360;
+  if (src) {
+    return (
+      <AbsoluteFill style={{ transform: `scale(${s})`, background: BG }}>
+        <Img src={src} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <Grain />
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill style={{ transform: `scale(${s})` }}>
       <AbsoluteFill style={{ background: `linear-gradient(${a}deg, #0a1622, #05060A 60%)` }} />
@@ -55,13 +63,17 @@ const VideoScene: React.FC<{ i: number }> = ({ i }) => {
   );
 };
 
-const ImageScene: React.FC<{ i: number }> = ({ i }) => {
+const ImageScene: React.FC<{ i: number; src?: string }> = ({ i, src }) => {
   const f = useCurrentFrame();
   const s = interpolate(f, [0, 130], [1.08, 1.2]);
   const tx = interpolate(f, [0, 130], [-20, 20]);
   return (
     <AbsoluteFill style={{ background: BG }}>
-      <AbsoluteFill style={{ transform: `scale(${s}) translateX(${tx}px)`, background: "linear-gradient(135deg, #16202e, #0b0e14)" }} />
+      {src ? (
+        <AbsoluteFill style={{ transform: `scale(${s}) translateX(${tx}px)` }}><Img src={src} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></AbsoluteFill>
+      ) : (
+        <AbsoluteFill style={{ transform: `scale(${s}) translateX(${tx}px)`, background: "linear-gradient(135deg, #16202e, #0b0e14)" }} />
+      )}
       <AbsoluteFill style={{ background: `radial-gradient(70% 50% at 50% 30%, ${GOLD}22, transparent 60%)` }} />
       <Grain />
     </AbsoluteFill>
@@ -130,9 +142,10 @@ const CTA: React.FC = () => {
   );
 };
 
-const SceneByType: React.FC<{ b: Beat; i: number }> = ({ b, i }) => {
+const SceneByType: React.FC<{ b: any; i: number }> = ({ b, i }) => {
   if (b.visual === "slam") return <Slam text={b.narr} />;
-  const bg = b.visual === "video" ? <VideoScene i={i} /> : b.visual === "imagem" ? <ImageScene i={i} /> : <VetorScene i={i} />;
+  const src = b.imageUrl;
+  const bg = b.visual === "video" ? <VideoScene i={i} src={src} /> : b.visual === "imagem" ? <ImageScene i={i} src={src} /> : <VetorScene i={i} />;
   return (<AbsoluteFill>{bg}<Caption text={b.narr} /></AbsoluteFill>);
 };
 

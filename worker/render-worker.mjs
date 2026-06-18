@@ -40,6 +40,11 @@ async function processJob(job) {
 
   const url = await getBundle();
   const inputProps = { script: ep.script, title: ep.title || "Viagem ao Passado", narrationUrl, storyboard: ep.storyboard || null };
+  if (Array.isArray(inputProps.storyboard)) {
+    for (const b of inputProps.storyboard) {
+      if (b && b.image) { try { const sg = await admin.storage.from("episodes").createSignedUrl(b.image, 3600); if (sg.data && sg.data.signedUrl) b.imageUrl = sg.data.signedUrl; } catch (_) {} }
+    }
+  }
   const composition = await selectComposition({ serveUrl: url, id: "Episode", inputProps });
   const out = path.join(os.tmpdir(), ep.id + ".mp4");
   console.log("Renderizando:", ep.title);

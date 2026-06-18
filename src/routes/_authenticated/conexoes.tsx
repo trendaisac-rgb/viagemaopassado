@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { NETWORKS, NetworkBadge, networkLabel } from "@/components/NetworkBadge";
 import { toast } from "sonner";
-import { Plug, Check, Loader2, KeyRound, Copy, ExternalLink, Mic } from "lucide-react";
+import { Plug, Check, Loader2, KeyRound, Copy, ExternalLink, Mic, Sparkles } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type Net = Database["public"]["Enums"]["network_kind"];
@@ -36,6 +36,8 @@ function Page() {
   const [saving, setSaving] = useState<string | null>(null);
   const [elForm, setElForm] = useState({ voice: "", key: "" });
   const [savingEl, setSavingEl] = useState(false);
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [savingOa, setSavingOa] = useState(false);
 
   const { data: networks, isLoading } = useQuery({
     queryKey: ["networks"],
@@ -84,6 +86,19 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["int-status"] });
     } catch (e: any) { toast.error(e.message ?? "Falha ao salvar"); }
     finally { setSavingEl(false); }
+  }
+
+  async function saveOpenai() {
+    if (!openaiKey) { toast.error("Cole a API Key da OpenAI."); return; }
+    setSavingOa(true);
+    try {
+      const { error } = await supabase.functions.invoke("integrations", { body: { action: "save", platform: "openai", client_secret: openaiKey.trim() } });
+      if (error) throw error;
+      toast.success("OpenAI salva. Agora gere as imagens no Estúdio.");
+      setOpenaiKey("");
+      qc.invalidateQueries({ queryKey: ["int-status"] });
+    } catch (e: any) { toast.error(e.message ?? "Falha"); }
+    finally { setSavingOa(false); }
   }
 
   async function connect(n: Net) {
@@ -162,6 +177,19 @@ function Page() {
           <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noreferrer" className="text-[11px] text-[var(--ice)] inline-flex items-center gap-1 hover:underline"><ExternalLink size={11}/> pegar API key / voice id</a>
           <button onClick={saveEl} disabled={savingEl} className="gold-btn px-3 py-1.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-50">{savingEl ? <Loader2 size={12} className="animate-spin"/> : <KeyRound size={12}/>} Salvar</button>
         </div>
+      </div>
+
+      <div className="panel p-5 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles size={16} className="text-[var(--primary)]"/><span className="font-heading text-lg">IA — Imagens (OpenAI)</span>
+          {configured?.openai ? <span className="pill" style={{ background: "rgba(57,192,122,0.14)", color: "var(--success)" }}><Check size={10}/> Configurado</span> : null}
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">As imagens-herói dos episódios são geradas com a sua conta OpenAI (DALL·E 3).</p>
+        <div className="flex gap-2">
+          <input className="ipt" type="password" placeholder="OpenAI API Key (sk-...)" value={openaiKey} onChange={e=>setOpenaiKey(e.target.value)}/>
+          <button onClick={saveOpenai} disabled={savingOa} className="gold-btn px-4 py-2 text-xs inline-flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50">{savingOa ? <Loader2 size={12} className="animate-spin"/> : <KeyRound size={12}/>} Salvar</button>
+        </div>
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="text-[11px] text-[var(--ice)] inline-flex items-center gap-1 hover:underline mt-2"><ExternalLink size={11}/> pegar API key</a>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">

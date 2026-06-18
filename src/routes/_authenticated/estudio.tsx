@@ -115,6 +115,16 @@ function EstudioPage() {
     } finally { setBusy(""); }
   }
 
+  async function genAssets() {
+    if (!episodeId) return;
+    setBusy("assets");
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-assets", { body: { episode_id: episodeId } });
+      if (error) { let m = error.message; try { const j = await (error as any).context?.json?.(); if (j?.error) m = j.error; } catch { /* */ } toast.error(m); return; }
+      toast.success("Imagens geradas: " + ((data as any)?.made ?? 0));
+    } finally { setBusy(""); }
+  }
+
   function reset() { setEpisodeId(null); setAngles([]); setAngle(""); setTopic(""); setScriptDraft(""); }
 
   if (!episodeId) {
@@ -206,9 +216,14 @@ function EstudioPage() {
           ) : rendering ? (
             <Hint>Renderizando… deixe o <b>worker</b> rodando na sua máquina. Esta tela atualiza sozinha.</Hint>
           ) : (
-            <button onClick={render} disabled={!!busy} className="gold-btn px-5 py-3 text-sm inline-flex items-center gap-2">
-              {busy === "render" ? <Loader2 size={16} className="animate-spin" /> : <Clapperboard size={16} />} Renderizar vídeo
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={genAssets} disabled={!!busy} className="ghost-btn px-5 py-3 text-sm inline-flex items-center gap-2">
+                {busy === "assets" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Gerar imagens (IA)
+              </button>
+              <button onClick={render} disabled={!!busy} className="gold-btn px-5 py-3 text-sm inline-flex items-center gap-2">
+                {busy === "render" ? <Loader2 size={16} className="animate-spin" /> : <Clapperboard size={16} />} Renderizar vídeo
+              </button>
+            </div>
           )}
       </Stage>
 
