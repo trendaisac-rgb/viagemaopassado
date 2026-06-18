@@ -39,7 +39,7 @@ async function processJob(job) {
   if (!narrationUrl) throw new Error("não consegui assinar a narração");
 
   const url = await getBundle();
-  const inputProps = { script: ep.script, title: ep.title || "Viagem ao Passado", narrationUrl };
+  const inputProps = { script: ep.script, title: ep.title || "Viagem ao Passado", narrationUrl, storyboard: ep.storyboard || null };
   const composition = await selectComposition({ serveUrl: url, id: "Episode", inputProps });
   const out = path.join(os.tmpdir(), ep.id + ".mp4");
   console.log("Renderizando:", ep.title);
