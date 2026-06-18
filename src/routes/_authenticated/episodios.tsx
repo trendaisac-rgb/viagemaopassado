@@ -3,17 +3,27 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EpisodeCard } from "@/components/EpisodeCard";
 import { EmptyState } from "@/components/EmptyState";
-import { Search, Sparkles } from "lucide-react";
+import { Search, Sparkles, Send, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/episodios")({
   head: () => ({ meta: [{ title: "Episódios · Viagem ao Passado" }] }),
   component: EpisodiosPage,
 });
 
+const PUBLISHERS: Record<string, string> = {
+  youtube: "youtube-publish",
+  x: "x-publish",
+  instagram: "instagram-publish",
+  tiktok: "tiktok-publish",
+};
+
 function EpisodiosPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
+  const [publishing, setPublishing] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["episodes-list"],
     queryFn: async () => {
@@ -22,6 +32,31 @@ function EpisodiosPage() {
       return data ?? [];
     },
   });
+
+  async function publishEpisode(episodeId: string) {
+    setPublishing(episodeId);
+    try {
+      const { data: nets } = await supabase.from("networks").select("network,status").eq("status", "connected");
+      const connected = (nets ?? []).map((n: any) => n.network);
+      if (connected.length === 0) { toast.error("Nenhuma rede conectada. Vá em Conexões."); return; }
+      toast.message("Publicando em: " + connected.join(", "));
+      for (const net of connected) {
+        const fn = PUBLISHERS[net];
+        if (!fn) continue;
+        const { data: res, error } = await supabase.functions.invoke(fn, { body: { episode_id: episodeId } });
+        if (error) {
+          let msg = error.message;
+          try { const j = await (error as any).context?.json?.(); if (j?.error) msg = j.error; } catch { /* ignore */ }
+          toast.error(net + ": " + msg);
+        } else {
+          toast.success(net + ": publicado" + ((res as any)?.url ? " — " + (res as any).url : ""));
+        }
+      }
+    } finally {
+      setPublishing(null);
+    }
+  }
+
   const filtered = (data ?? []).filter(e =>
     (status === "all" || e.status === status) &&
     (q === "" || e.title.toLowerCase().includes(q.toLowerCase()))
@@ -64,7 +99,16 @@ function EpisodiosPage() {
           action={<Link to="/estudio" className="gold-btn px-4 py-2 text-sm">Criar episódio</Link>}/>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {filtered.map(ep => <EpisodeCard key={ep.id} ep={ep}/>)}
+          {filtered.map(ep => (
+            <div key={ep.id} className="flex flex-col gap-2">
+              <EpisodeCard ep={ep}/>
+              <button onClick={()=>publishEpisode(ep.id)} disabled={publishing===ep.id}
+                className="ghost-btn px-3 py-1.5 text-xs inline-flex items-center justify-center gap-1.5 disabled:opacity-50">
+                {publishing===ep.id ? <Loader2 size={12} className="animate-spin"/> : <Send size={12}/>}
+                Publicar nas conectadas
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

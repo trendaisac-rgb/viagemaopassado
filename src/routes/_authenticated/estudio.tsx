@@ -119,7 +119,7 @@ function EstudioPage() {
   async function publishNow() {
     if (!episodeId || selectedNets.length === 0) return;
     setBusy(true);
-    const publishers: Record<string, string> = { youtube: "youtube-publish", x: "x-publish" };
+    const publishers: Record<string, string> = { youtube: "youtube-publish", x: "x-publish", instagram: "instagram-publish", tiktok: "tiktok-publish" };
     let ok = 0;
     try {
       for (const n of selectedNets) {
