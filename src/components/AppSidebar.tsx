@@ -4,13 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard, Wand2, Film, CalendarDays, MessageSquare,
-  BarChart3, Plug, Settings, LogOut,
+  BarChart3, Plug, Settings, LogOut, Lightbulb,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const items = [
   { to: "/painel",       label: "Painel",      icon: LayoutDashboard },
   { to: "/estudio",      label: "Estúdio",     icon: Wand2 },
+  { to: "/ideias",       label: "Ideias",      icon: Lightbulb },
   { to: "/episodios",    label: "Episódios",   icon: Film },
   { to: "/agenda",       label: "Agenda",      icon: CalendarDays },
   { to: "/comentarios",  label: "Comentários", icon: MessageSquare },
