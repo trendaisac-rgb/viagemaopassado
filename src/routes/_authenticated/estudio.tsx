@@ -66,7 +66,7 @@ function EstudioPage() {
     try {
       const s = await ai("script", { topic, angle, duration_s: 45 });
       const c = await ai("caption", { topic, angle, script: s?.script });
-      await supabase.from("episodes").update({ script: s?.script ?? "", caption: c?.caption ?? "", hashtags: c?.hashtags ?? [] }).eq("id", eid);
+      await supabase.from("episodes").update({ script: s?.script ?? "", caption: c?.caption ?? "", hashtags: c?.hashtags ?? [], storyboard: s?.storyboard ?? null, hook: s?.hook ?? null, fact_checks: s?.fact_checks ?? null }).eq("id", eid);
       qc.invalidateQueries({ queryKey: ["studio-ep", eid] });
       toast.success("Roteiro pronto!");
     } catch { toast.error("Falha ao gerar o roteiro."); } finally { setBusy(""); }

@@ -10,7 +10,7 @@ type Net = Database["public"]["Enums"]["network_kind"];
 export function EpisodeCard({ ep, networks }: { ep: Ep; networks?: Net[] }) {
   return (
     <div className="panel hover-lift overflow-hidden flex flex-col">
-      <div className="relative aspect-[9/16] bg-[var(--panel-2)] flex items-center justify-center overflow-hidden">
+      <div className="relative aspect-[9/16] bg-[#05060A] flex items-center justify-center overflow-hidden">
         {ep.thumb_url ? (
           <img src={ep.thumb_url} alt={ep.title} className="h-full w-full object-cover" loading="lazy"/>
         ) : (

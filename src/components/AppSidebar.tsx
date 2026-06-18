@@ -48,7 +48,7 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="hidden md:flex w-[260px] shrink-0 flex-col border-r border-border bg-[var(--panel)]/40 backdrop-blur">
+    <aside className="hidden md:flex w-[260px] shrink-0 flex-col border-r-[3px] border-border bg-[var(--panel)]">
       <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
         <Logo size={36} />
         <div className="leading-tight">
@@ -69,12 +69,14 @@ export function AppSidebar() {
                   to={it.to}
                   className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
                   style={{
-                    background: active ? "var(--panel-2)" : "transparent",
+                    background: active ? "var(--primary)" : "transparent",
                     color: active ? "var(--foreground)" : "var(--muted-foreground)",
-                    boxShadow: active ? "inset 2px 0 0 var(--primary)" : "none",
+                    border: active ? "2px solid var(--border)" : "2px solid transparent",
+                    boxShadow: active ? "3px 3px 0 0 var(--border)" : "none",
+                    fontWeight: active ? 700 : 500,
                   }}
                 >
-                  <Icon size={16} style={{ color: active ? "var(--primary)" : "currentColor" }}/>
+                  <Icon size={16} style={{ color: "currentColor" }}/>
                   <span className="font-heading tracking-wide">{it.label}</span>
                 </Link>
               </li>
