@@ -1,8 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Check, ChevronRight, Wand2, FileText, Hash, Mic, Cpu, Play, Send, CalendarClock } from "lucide-react";
+import { Sparkles, Loader2, Check, FileText, Mic, Clapperboard, Send, ArrowRight, Lock, RotateCcw, Play } from "lucide-react";
 import { NETWORKS, networkLabel, NetworkBadge } from "@/components/NetworkBadge";
 
 export const Route = createFileRoute("/_authenticated/estudio")({
@@ -11,381 +12,243 @@ export const Route = createFileRoute("/_authenticated/estudio")({
   component: EstudioPage,
 });
 
-type Step = 0|1|2|3|4|5;
-const steps = [
-  { key: 0, label: "Tema",      icon: Wand2 },
-  { key: 1, label: "Roteiro",   icon: FileText },
-  { key: 2, label: "Legenda",   icon: Hash },
-  { key: 3, label: "Voz",       icon: Mic },
-  { key: 4, label: "Geração",   icon: Cpu },
-  { key: 5, label: "Publicar",  icon: Send },
-] as const;
+const PUB: Record<string, string> = { youtube: "youtube-publish", x: "x-publish", instagram: "instagram-publish", tiktok: "tiktok-publish" };
 
 function EstudioPage() {
-  const nav = useNavigate();
-  const [step, setStep] = useState<Step>(0);
-  const [busy, setBusy] = useState(false);
-
-  // state
   const sp = Route.useSearch();
+  const qc = useQueryClient();
   const [topic, setTopic] = useState(sp.tema || "");
   const [angles, setAngles] = useState<string[]>([]);
   const [angle, setAngle] = useState(sp.angulo || "");
-  const [script, setScript] = useState("");
-  const [factChecks, setFactChecks] = useState<string[]>([]);
-  const [caption, setCaption] = useState("");
-  const [hashtags, setHashtags] = useState<string[]>([]);
-  const [voice, setVoice] = useState("Victor Power PT-BR");
-  const [pace, setPace] = useState("Médio");
-  const [duration, setDuration] = useState(45);
-  const [progressStep, setProgressStep] = useState("");
-  const [progressPct, setProgressPct] = useState(0);
   const [episodeId, setEpisodeId] = useState<string | null>(null);
-  const [selectedNets, setSelectedNets] = useState<string[]>(["youtube","instagram","tiktok"]);
+  const [busy, setBusy] = useState("");
+  const [scriptDraft, setScriptDraft] = useState("");
+  const [selectedNets, setSelectedNets] = useState<string[]>(["youtube"]);
 
-  async function callAi(kind: "angles"|"script"|"caption", input: any) {
+  const epq = useQuery({
+    queryKey: ["studio-ep", episodeId],
+    enabled: !!episodeId,
+    refetchInterval: (q) => { const e: any = q.state.data; return e && e.status === "generating" ? 3500 : false; },
+    queryFn: async () => (await supabase.from("episodes").select("*").eq("id", episodeId).single()).data as any,
+  });
+  const e = epq.data;
+  useEffect(() => { if (e && typeof e.script === "string") setScriptDraft(e.script); }, [e?.script]);
+
+  async function ai(kind: string, input: any) {
     const { data, error } = await supabase.functions.invoke("ai-generate", { body: { kind, input } });
     if (error) throw new Error(error.message);
-    return data;
+    return data as any;
   }
 
   async function suggestAngles() {
-    if (!topic.trim()) { toast.error("Digite um tema primeiro."); return; }
-    setBusy(true);
-    try {
-      const r = await callAi("angles", { topic });
-      setAngles(r.angles ?? []);
-      toast.success("Ângulos gerados!");
-    } catch (e: any) { toast.error(e.message ?? "Falha na IA"); }
-    finally { setBusy(false); }
+    if (!topic.trim()) { toast.error("Escreva um tema primeiro."); return; }
+    setBusy("angles");
+    try { const r = await ai("angles", { topic }); setAngles(r?.angles ?? []); }
+    catch { toast.error("A IA não respondeu agora."); } finally { setBusy(""); }
   }
 
-  async function generateScript() {
-    if (!angle) { toast.error("Escolha um ângulo."); return; }
-    setBusy(true);
-    try {
-      const r = await callAi("script", { topic, angle, duration_s: duration });
-      setScript(r.script ?? "");
-      setFactChecks(r.fact_checks ?? []);
-      setStep(1);
-    } catch (e: any) { toast.error(e.message ?? "Falha na IA"); }
-    finally { setBusy(false); }
-  }
-
-  async function generateCaption() {
-    setBusy(true);
-    try {
-      const r = await callAi("caption", { topic, angle, script });
-      setCaption(r.caption ?? "");
-      setHashtags(r.hashtags ?? []);
-      setStep(2);
-    } catch (e: any) { toast.error(e.message ?? "Falha na IA"); }
-    finally { setBusy(false); }
-  }
-
-  async function startRender() {
-    setBusy(true);
-    setStep(4);
+  async function startEpisode() {
+    if (!topic.trim()) { toast.error("Escreva um tema primeiro."); return; }
+    setBusy("start");
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Não autenticado");
-      const { data, error } = await supabase.from("episodes").insert({
-        user_id: user.id,
-        title: angle || topic,
-        topic, angle, script, caption, hashtags, voice, duration_s: duration,
-        status: "generating", progress_step: "roteiro", progress_pct: 10,
-      }).select().single();
+      const { data, error } = await supabase.from("episodes").insert({ user_id: user.id, title: angle || topic, topic, angle: angle || null, status: "draft" }).select().single();
       if (error) throw error;
       setEpisodeId(data.id);
-
-      // Simulated progressive render
-      const stages = [
-        { step: "roteiro",   pct: 20 },
-        { step: "narração",  pct: 40 },
-        { step: "cenas",     pct: 65 },
-        { step: "render",    pct: 85 },
-        { step: "legendas",  pct: 100 },
-      ];
-      for (const s of stages) {
-        setProgressStep(s.step); setProgressPct(s.pct);
-        await supabase.from("episodes").update({ progress_step: s.step, progress_pct: s.pct }).eq("id", data.id);
-        await new Promise(r => setTimeout(r, 900));
-      }
-      await supabase.from("episodes").update({ status: "ready", progress_step: "pronto", progress_pct: 100 }).eq("id", data.id);
-      setStep(5);
-      toast.success("Vídeo pronto!");
-    } catch (e: any) { toast.error(e.message ?? "Falha na geração"); setStep(3); }
-    finally { setBusy(false); }
+      await genScript(data.id);
+    } catch (err: any) { toast.error(err.message); } finally { setBusy(""); }
   }
 
-  async function publishNow() {
+  async function genScript(id?: string) {
+    const eid = id || episodeId; if (!eid) return;
+    setBusy("script");
+    try {
+      const s = await ai("script", { topic, angle, duration_s: 45 });
+      const c = await ai("caption", { topic, angle, script: s?.script });
+      await supabase.from("episodes").update({ script: s?.script ?? "", caption: c?.caption ?? "", hashtags: c?.hashtags ?? [] }).eq("id", eid);
+      qc.invalidateQueries({ queryKey: ["studio-ep", eid] });
+      toast.success("Roteiro pronto!");
+    } catch { toast.error("Falha ao gerar o roteiro."); } finally { setBusy(""); }
+  }
+
+  async function saveScript() {
+    if (!episodeId) return;
+    await supabase.from("episodes").update({ script: scriptDraft }).eq("id", episodeId);
+    qc.invalidateQueries({ queryKey: ["studio-ep", episodeId] });
+  }
+
+  async function genNarration() {
+    if (!episodeId) return;
+    setBusy("narration");
+    try {
+      const { error } = await supabase.functions.invoke("generate-narration", { body: { episode_id: episodeId } });
+      if (error) { let m = error.message; try { const j = await (error as any).context?.json?.(); if (j?.error) m = j.error; } catch { /* */ } toast.error(m); return; }
+      qc.invalidateQueries({ queryKey: ["studio-ep", episodeId] });
+      toast.success("Narração gerada (Victor Power)!");
+    } finally { setBusy(""); }
+  }
+
+  async function render() {
+    if (!episodeId) return;
+    setBusy("render");
+    try {
+      const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
+      await supabase.from("render_jobs").insert({ user_id: user.id, episode_id: episodeId, status: "queued" });
+      await supabase.from("episodes").update({ status: "generating", progress_step: "render", progress_pct: 10 }).eq("id", episodeId);
+      qc.invalidateQueries({ queryKey: ["studio-ep", episodeId] });
+      toast.success("Na fila de render — deixe o worker rodando.");
+    } finally { setBusy(""); }
+  }
+
+  async function publish() {
     if (!episodeId || selectedNets.length === 0) return;
-    setBusy(true);
-    const publishers: Record<string, string> = { youtube: "youtube-publish", x: "x-publish", instagram: "instagram-publish", tiktok: "tiktok-publish" };
+    setBusy("publish");
     let ok = 0;
     try {
       for (const n of selectedNets) {
-        const fn = publishers[n];
-        if (!fn) { toast.message(`${networkLabel(n as any)}: publicação direta em breve.`); continue; }
-        const { data, error } = await supabase.functions.invoke(fn, { body: { episode_id: episodeId } });
-        if (error) {
-          let msg = error.message;
-          try { const j = await (error as any).context?.json?.(); if (j?.error) msg = j.error; } catch { /* ignore */ }
-          toast.error(`${networkLabel(n as any)}: ${msg}`);
-          continue;
-        }
-        ok++;
-        toast.success(`${networkLabel(n as any)}: publicado${(data as any)?.url ? " — " + (data as any).url : ""}.`);
+        const { data, error } = await supabase.functions.invoke(PUB[n], { body: { episode_id: episodeId } });
+        if (error) { let m = error.message; try { const j = await (error as any).context?.json?.(); if (j?.error) m = j.error; } catch { /* */ } toast.error(`${networkLabel(n as any)}: ${m}`); }
+        else { ok++; toast.success(`${networkLabel(n as any)}: publicado${(data as any)?.url ? " — " + (data as any).url : ""}`); }
       }
-      if (ok > 0) nav({ to: "/painel" });
-    } catch (e: any) { toast.error(e.message ?? "Falha"); }
-    finally { setBusy(false); }
+      if (ok > 0) qc.invalidateQueries({ queryKey: ["studio-ep", episodeId] });
+    } finally { setBusy(""); }
   }
 
-  return (
-    <div className="px-6 md:px-10 py-8 max-w-[1200px] mx-auto">
-      <header className="mb-6">
+  function reset() { setEpisodeId(null); setAngles([]); setAngle(""); setTopic(""); setScriptDraft(""); }
+
+  if (!episodeId) {
+    return (
+      <div className="px-6 md:px-10 py-8 max-w-[820px] mx-auto">
         <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-heading">Estúdio</div>
-        <h1 className="font-display text-4xl mt-1">Novo episódio</h1>
-      </header>
-
-      {/* Stepper */}
-      <ol className="flex items-center gap-2 mb-7 overflow-x-auto scrollbar-thin pb-2">
-        {steps.map((s, idx) => {
-          const active = s.key === step;
-          const done = s.key < step;
-          const Icon = s.icon;
-          return (
-            <li key={s.key} className="flex items-center gap-2 shrink-0">
-              <button onClick={()=> (done || active) && setStep(s.key as Step)}
-                className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-heading uppercase tracking-wider transition-colors"
-                style={{
-                  background: active ? "var(--primary)" : done ? "rgba(57,192,122,0.12)" : "var(--panel-2)",
-                  color: active ? "var(--primary-foreground)" : done ? "var(--success)" : "var(--muted-foreground)",
-                  border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
-                }}>
-                {done ? <Check size={12}/> : <Icon size={12}/>} {s.label}
-              </button>
-              {idx < steps.length - 1 && <ChevronRight size={14} className="text-border"/>}
-            </li>
-          );
-        })}
-      </ol>
-
-      <div className="panel p-7">
-        {step === 0 && (
-          <div className="space-y-5">
-            <Field label="Tema do episódio">
-              <textarea className="ipt min-h-[90px]" value={topic} onChange={e=>setTopic(e.target.value)}
-                placeholder="Ex: A última carta de Napoleão antes do exílio em Santa Helena"/>
-            </Field>
-            <button onClick={suggestAngles} disabled={busy} className="gold-btn px-5 py-2.5 text-sm inline-flex items-center gap-2">
-              {busy ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>}
-              Sugerir ângulos virais
+        <h1 className="font-display text-4xl mt-1 mb-1">Criar episódio</h1>
+        <p className="text-sm text-muted-foreground mb-6">Comece pelo tema. A IA sugere ângulos, escreve o roteiro e te guia no passo a passo.</p>
+        <div className="panel p-6">
+          <label className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-heading">Tema do episódio</label>
+          <textarea value={topic} onChange={(ev) => setTopic(ev.target.value)} placeholder="Ex.: A última carta de Napoleão antes de Santa Helena"
+            className="w-full mt-2 min-h-[90px] rounded-xl border-2 border-border bg-input p-3 text-[15px] focus:outline-none" />
+          <div className="flex flex-wrap gap-3 mt-4">
+            <button onClick={suggestAngles} disabled={!!busy} className="ghost-btn px-5 py-3 text-sm inline-flex items-center gap-2">
+              {busy === "angles" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Sugerir ângulos
             </button>
-
-            {angles.length > 0 && (
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-heading mb-2">Escolha um ângulo</div>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {angles.map((a, i) => (
-                    <button key={i} onClick={()=>setAngle(a)} className="text-left panel-inset hover-lift p-4"
-                      style={{ borderColor: angle===a ? "var(--primary)" : undefined }}>
-                      <div className="text-[10px] uppercase tracking-wider text-[var(--primary)] font-heading">Ângulo {i+1}</div>
-                      <div className="text-sm mt-1 leading-snug">{a}</div>
-                    </button>
-                  ))}
-                </div>
-                <button onClick={generateScript} disabled={!angle || busy}
-                  className="gold-btn mt-5 px-5 py-2.5 text-sm inline-flex items-center gap-2 disabled:opacity-50">
-                  {busy ? <Loader2 size={14} className="animate-spin"/> : <FileText size={14}/>}
-                  Gerar roteiro
-                </button>
-              </div>
-            )}
+            <button onClick={startEpisode} disabled={!!busy} className="gold-btn px-6 py-3 text-sm inline-flex items-center gap-2">
+              {(busy === "start" || busy === "script") ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />} Começar episódio
+            </button>
           </div>
-        )}
-
-        {step === 1 && (
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="md:col-span-2">
-              <Field label="Roteiro (editável)">
-                <textarea className="ipt min-h-[420px] font-mono text-sm leading-relaxed"
-                  value={script} onChange={e=>setScript(e.target.value)}/>
-              </Field>
-              <button onClick={generateCaption} disabled={busy}
-                className="gold-btn mt-4 px-5 py-2.5 text-sm inline-flex items-center gap-2">
-                {busy ? <Loader2 size={14} className="animate-spin"/> : <Hash size={14}/>}
-                Gerar legenda & hashtags
-              </button>
-            </div>
-            <aside className="panel-inset p-4 h-fit">
-              <div className="font-heading text-sm flex items-center gap-2 mb-3">
-                <Check size={14} className="text-[var(--success)]"/> Fact-check
-              </div>
-              <ul className="space-y-2">
-                {factChecks.length === 0 && <li className="text-xs text-muted-foreground">Nenhuma verificação.</li>}
-                {factChecks.map((f, i) => (
-                  <li key={i} className="text-xs flex gap-2">
-                    <Check size={14} className="text-[var(--success)] shrink-0 mt-0.5"/>
-                    <span className="text-muted-foreground">{f}</span>
-                  </li>
-                ))}
-              </ul>
-            </aside>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-5">
-            <Field label="Legenda final">
-              <textarea className="ipt min-h-[140px]" value={caption} onChange={e=>setCaption(e.target.value)}/>
-            </Field>
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-heading mb-2">Hashtags</div>
-              <div className="flex flex-wrap gap-2">
-                {hashtags.map((h, i) => (
-                  <span key={i} className="pill" style={{ background: "rgba(127,178,255,0.12)", color: "var(--ice)" }}>
-                    {h.startsWith("#") ? h : `#${h}`}
-                  </span>
+          {angles.length > 0 && (
+            <div className="mt-6">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-heading mb-2">Escolha um ângulo (opcional)</div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {angles.map((a, i) => (
+                  <button key={i} onClick={() => setAngle(a)} className="text-left panel-inset hover-lift p-4" style={{ borderColor: "var(--border)", borderWidth: angle === a ? 3 : 2, background: angle === a ? "var(--panel-2)" : undefined }}>
+                    <div className="text-[10px] uppercase tracking-wider font-heading" style={{ color: "var(--ice)" }}>Ângulo {i + 1}</div>
+                    <div className="text-sm mt-1 leading-snug font-medium">{a}</div>
+                  </button>
                 ))}
               </div>
             </div>
-            <button onClick={()=>setStep(3)} className="gold-btn px-5 py-2.5 text-sm inline-flex items-center gap-2">
-              <Mic size={14}/> Configurar voz
-            </button>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <Field label="Voz">
-                <select className="ipt" value={voice} onChange={e=>setVoice(e.target.value)}>
-                  <option>Victor Power PT-BR</option>
-                  <option>Narrador Cinematográfico PT-BR</option>
-                  <option>Documental Feminino PT-BR</option>
-                </select>
-              </Field>
-              <Field label="Ritmo">
-                <select className="ipt" value={pace} onChange={e=>setPace(e.target.value)}>
-                  <option>Lento</option><option>Médio</option><option>Acelerado</option>
-                </select>
-              </Field>
-              <Field label="Duração alvo (segundos)">
-                <input className="ipt" type="number" min={20} max={90} value={duration} onChange={e=>setDuration(+e.target.value)}/>
-              </Field>
-            </div>
-            <div className="panel-inset p-5">
-              <div className="font-heading text-sm mb-2">Identidade da marca</div>
-              <ul className="text-xs text-muted-foreground space-y-1.5">
-                <li>• Formato 9:16, qualidade cinemática</li>
-                <li>• Corte a cada 3–5s · cada corte único</li>
-                <li>• Hook nos primeiros 3 segundos</li>
-                <li>• Legendas grandes, paleta dourada</li>
-                <li>• Final com gancho para próximo episódio</li>
-              </ul>
-            </div>
-            <div className="md:col-span-2">
-              <button onClick={startRender} disabled={busy} className="gold-btn px-5 py-2.5 text-sm inline-flex items-center gap-2">
-                <Cpu size={14}/> Iniciar geração
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="space-y-6">
-            <div className="font-heading text-lg">Gerando episódio…</div>
-            <div className="panel-inset p-5">
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                <span className="uppercase tracking-wider font-heading">Etapa: {progressStep || "preparando"}</span>
-                <span>{progressPct}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-[var(--input)] overflow-hidden">
-                <div className="h-full transition-all duration-500"
-                  style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--primary), var(--primary-hover))" }}/>
-              </div>
-              <ul className="mt-5 grid grid-cols-5 gap-2 text-[10px] uppercase tracking-wider font-heading">
-                {["roteiro","narração","cenas","render","legendas"].map((s, i) => {
-                  const done = progressPct >= (i+1)*20;
-                  return (
-                    <li key={s} className="flex flex-col items-center gap-1"
-                      style={{ color: done ? "var(--primary)" : "var(--muted-foreground)" }}>
-                      <div className="h-6 w-6 rounded-full flex items-center justify-center border"
-                        style={{ borderColor: done ? "var(--primary)" : "var(--border)" }}>
-                        {done ? <Check size={12}/> : i+1}
-                      </div>
-                      {s}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <div className="aspect-[9/16] rounded-xl overflow-hidden border border-border bg-black flex items-center justify-center relative">
-                <div className="absolute inset-0 opacity-60"
-                  style={{ background: "radial-gradient(circle at 30% 30%, rgba(233,184,74,0.3), transparent 60%), radial-gradient(circle at 70% 70%, rgba(127,178,255,0.2), transparent 55%)" }}/>
-                <div className="relative h-14 w-14 rounded-full bg-black/40 backdrop-blur border border-white/20 flex items-center justify-center">
-                  <Play size={24} className="text-[var(--primary)]" fill="currentColor"/>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <Field label="Legenda final"><textarea className="ipt min-h-[100px]" value={caption} readOnly/></Field>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-heading mb-2">Publicar em</div>
-                <div className="flex flex-wrap gap-2">
-                  {NETWORKS.map(n => {
-                    const sel = selectedNets.includes(n);
-                    return (
-                      <button key={n} onClick={()=>setSelectedNets(p => sel ? p.filter(x=>x!==n) : [...p, n])}
-                        className="rounded-md px-3 py-2 text-xs font-heading uppercase tracking-wider"
-                        style={{
-                          background: sel ? "var(--primary)" : "var(--panel-2)",
-                          color: sel ? "var(--primary-foreground)" : "var(--muted-foreground)",
-                          border: `1px solid ${sel ? "var(--primary)" : "var(--border)"}`,
-                        }}>
-                        <span className="inline-flex items-center gap-2">
-                          <NetworkBadge network={n}/> {networkLabel(n)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button onClick={publishNow} disabled={busy} className="gold-btn px-5 py-2.5 text-sm inline-flex items-center gap-2">
-                  {busy && <Loader2 size={14} className="animate-spin"/>}<Send size={14}/> Publicar agora
-                </button>
-                <button onClick={()=>{ toast.success("Episódio salvo. Agende em Agenda."); nav({to:"/agenda"}); }}
-                  className="ghost-btn px-5 py-2.5 text-sm inline-flex items-center gap-2">
-                  <CalendarClock size={14}/> Agendar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-      <style>{`
-        .ipt { background: var(--input); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14px; color: var(--foreground); width: 100%; transition: border-color .15s ease, box-shadow .15s ease; }
-        .ipt:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(233,184,74,0.15); }
-        select.ipt { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%), linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%); background-position: calc(100% - 18px) 16px, calc(100% - 13px) 16px; background-size: 5px 5px; background-repeat: no-repeat; }
-      `}</style>
+    );
+  }
+
+  const hasScript = !!e?.script;
+  const hasNarr = !!e?.narration_url;
+  const hasVideo = !!e?.video_url;
+  const rendering = e?.status === "generating";
+  const isPub = e?.status === "published";
+  const done = (b: boolean) => b
+    ? <span className="pill" style={{ background: "var(--success)", color: "#fff" }}><Check size={11} /> Pronto</span>
+    : <span className="pill" style={{ background: "var(--panel-2)" }}>Pendente</span>;
+
+  return (
+    <div className="px-6 md:px-10 py-8 max-w-[900px] mx-auto">
+      <div className="flex items-center justify-between gap-4 mb-5">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-heading">Episódio</div>
+          <h1 className="font-display text-3xl mt-1 leading-tight">{e?.title ?? topic}</h1>
+        </div>
+        <button onClick={reset} className="ghost-btn px-4 py-2 text-sm inline-flex items-center gap-2"><RotateCcw size={14} /> Novo</button>
+      </div>
+
+      <Stage n={1} icon={<FileText size={18} />} title="Roteiro" status={done(hasScript)}>
+        {!hasScript ? (
+          <button onClick={() => genScript()} disabled={!!busy} className="gold-btn px-5 py-3 text-sm inline-flex items-center gap-2">
+            {busy === "script" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Gerar roteiro (IA)
+          </button>
+        ) : (
+          <>
+            <textarea value={scriptDraft} onChange={(ev) => setScriptDraft(ev.target.value)} onBlur={saveScript}
+              className="w-full min-h-[160px] rounded-xl border-2 border-border bg-input p-3 text-sm font-mono leading-relaxed" />
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => genScript()} disabled={!!busy} className="ghost-btn px-4 py-2 text-xs inline-flex items-center gap-2">{busy === "script" ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />} Regerar</button>
+            </div>
+          </>
+        )}
+      </Stage>
+
+      <Stage n={2} icon={<Mic size={18} />} title="Narração" status={done(hasNarr)} locked={!hasScript}>
+        {!hasScript ? <Hint>Gere o roteiro primeiro.</Hint> :
+          <button onClick={genNarration} disabled={!!busy} className="gold-btn px-5 py-3 text-sm inline-flex items-center gap-2">
+            {busy === "narration" ? <Loader2 size={16} className="animate-spin" /> : <Mic size={16} />} {hasNarr ? "Regerar narração" : "Gerar narração (ElevenLabs)"}
+          </button>}
+      </Stage>
+
+      <Stage n={3} icon={<Clapperboard size={18} />} title="Vídeo" locked={!hasNarr}
+        status={hasVideo ? done(true) : rendering ? <span className="pill" style={{ background: "var(--ice)", color: "#fff" }}><Loader2 size={11} className="animate-spin" /> Renderizando</span> : done(false)}>
+        {!hasNarr ? <Hint>Gere a narração primeiro.</Hint> :
+          hasVideo ? (
+            <div className="flex items-center gap-3">
+              <div className="h-16 w-12 rounded-lg border-2 border-border bg-black grid place-items-center"><Play size={18} className="text-[var(--primary)]" fill="currentColor" /></div>
+              <div className="text-sm">Vídeo pronto. <button onClick={render} className="underline font-semibold">renderizar de novo</button></div>
+            </div>
+          ) : rendering ? (
+            <Hint>Renderizando… deixe o <b>worker</b> rodando na sua máquina. Esta tela atualiza sozinha.</Hint>
+          ) : (
+            <button onClick={render} disabled={!!busy} className="gold-btn px-5 py-3 text-sm inline-flex items-center gap-2">
+              {busy === "render" ? <Loader2 size={16} className="animate-spin" /> : <Clapperboard size={16} />} Renderizar vídeo
+            </button>
+          )}
+      </Stage>
+
+      <Stage n={4} icon={<Send size={18} />} title="Publicar" status={done(isPub)} locked={!hasVideo}>
+        {!hasVideo ? <Hint>Renderize o vídeo primeiro. (No X dá pra postar texto antes, mas o ideal é com vídeo.)</Hint> :
+          <>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {NETWORKS.map((n) => {
+                const sel = selectedNets.includes(n);
+                return (
+                  <button key={n} onClick={() => setSelectedNets((p) => sel ? p.filter((x) => x !== n) : [...p, n])}
+                    className="rounded-lg px-3 py-2 text-xs font-heading uppercase tracking-wider inline-flex items-center gap-2 border-2"
+                    style={{ background: sel ? "var(--primary)" : "var(--panel)", borderColor: "var(--border)", color: "var(--foreground)", boxShadow: sel ? "3px 3px 0 0 var(--border)" : "none" }}>
+                    <NetworkBadge network={n} /> {networkLabel(n)}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={publish} disabled={!!busy || selectedNets.length === 0} className="gold-btn px-6 py-3 text-sm inline-flex items-center gap-2">
+              {busy === "publish" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Publicar agora
+            </button>
+          </>}
+      </Stage>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Stage({ n, icon, title, status, locked, children }: { n: number; icon: any; title: string; status: any; locked?: boolean; children: any }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-heading">{label}</span>
-      {children}
-    </label>
+    <div className="panel p-5 mb-4" style={{ opacity: locked ? 0.6 : 1 }}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className="h-10 w-10 rounded-xl border-2 border-border grid place-items-center font-display text-lg" style={{ background: "var(--primary)" }}>{locked ? <Lock size={16} /> : n}</div>
+        <div className="flex items-center gap-2 flex-1"><span>{icon}</span><h2 className="font-display text-xl">{title}</h2></div>
+        {status}
+      </div>
+      <div>{children}</div>
+    </div>
   );
+}
+
+function Hint({ children }: { children: any }) {
+  return <div className="text-sm text-muted-foreground">{children}</div>;
 }
