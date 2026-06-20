@@ -129,6 +129,17 @@ function EstudioPage() {
     } finally { setBusy(""); }
   }
 
+  async function publishAyrshare() {
+    if (!episodeId || selectedNets.length === 0) return;
+    setBusy("ayr");
+    try {
+      const { data, error } = await supabase.functions.invoke("ayrshare-publish", { body: { episode_id: episodeId, platforms: selectedNets } });
+      if (error) { let m = error.message; try { const j = await (error as any).context?.json?.(); if (j?.error) m = j.error; } catch { /* */ } toast.error(m); return; }
+      toast.success("Publicado via Ayrshare: " + ((data as any)?.platforms?.join(", ") ?? ""));
+      qc.invalidateQueries({ queryKey: ["studio-ep", episodeId] });
+    } finally { setBusy(""); }
+  }
+
   async function genAssets() {
     if (!episodeId) return;
     setBusy("assets");
@@ -284,9 +295,14 @@ function EstudioPage() {
                 );
               })}
             </div>
-            <button onClick={publish} disabled={!!busy || selectedNets.length === 0} className="gold-btn px-6 py-3 text-sm inline-flex items-center gap-2">
-              {busy === "publish" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Publicar agora
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={publish} disabled={!!busy || selectedNets.length === 0} className="gold-btn px-6 py-3 text-sm inline-flex items-center gap-2">
+                {busy === "publish" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Publicar agora
+              </button>
+              <button onClick={publishAyrshare} disabled={!!busy || selectedNets.length === 0} className="ghost-btn px-5 py-3 text-sm inline-flex items-center gap-2" title="Publica via Ayrshare (Instagram/TikTok sem auditoria propria)">
+                {busy === "ayr" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} via Ayrshare
+              </button>
+            </div>
             <div className="flex flex-wrap items-center gap-2 mt-3">
               <span className="text-xs text-muted-foreground font-heading uppercase tracking-wider">ou agende:</span>
               <input type="datetime-local" value={schedAt} onChange={(ev) => setSchedAt(ev.target.value)} className="rounded-xl border-2 border-border bg-input px-3 py-2 text-sm" />

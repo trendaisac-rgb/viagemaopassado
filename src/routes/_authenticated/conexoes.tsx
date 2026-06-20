@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { NETWORKS, NetworkBadge, networkLabel } from "@/components/NetworkBadge";
 import { toast } from "sonner";
-import { Plug, Check, Loader2, KeyRound, Copy, ExternalLink, Mic, Sparkles } from "lucide-react";
+import { Plug, Check, Loader2, KeyRound, Copy, ExternalLink, Mic, Sparkles, Send } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type Net = Database["public"]["Enums"]["network_kind"];
@@ -38,6 +38,8 @@ function Page() {
   const [savingEl, setSavingEl] = useState(false);
   const [openaiKey, setOpenaiKey] = useState("");
   const [savingOa, setSavingOa] = useState(false);
+  const [ayrKey, setAyrKey] = useState("");
+  const [savingAyr, setSavingAyr] = useState(false);
 
   const { data: networks, isLoading } = useQuery({
     queryKey: ["networks"],
@@ -99,6 +101,19 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["int-status"] });
     } catch (e: any) { toast.error(e.message ?? "Falha"); }
     finally { setSavingOa(false); }
+  }
+
+  async function saveAyrshare() {
+    if (!ayrKey) { toast.error("Cole a API Key do Ayrshare."); return; }
+    setSavingAyr(true);
+    try {
+      const { error } = await supabase.functions.invoke("integrations", { body: { action: "save", platform: "ayrshare", client_secret: ayrKey.trim() } });
+      if (error) throw error;
+      toast.success("Ayrshare salvo. Conecte suas redes no painel do Ayrshare e publique pelo Estúdio.");
+      setAyrKey("");
+      qc.invalidateQueries({ queryKey: ["int-status"] });
+    } catch (e: any) { toast.error(e.message ?? "Falha"); }
+    finally { setSavingAyr(false); }
   }
 
   async function connect(n: Net) {
@@ -190,6 +205,19 @@ function Page() {
           <button onClick={saveOpenai} disabled={savingOa} className="gold-btn px-4 py-2 text-xs inline-flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50">{savingOa ? <Loader2 size={12} className="animate-spin"/> : <KeyRound size={12}/>} Salvar</button>
         </div>
         <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="text-[11px] text-[var(--ice)] inline-flex items-center gap-1 hover:underline mt-2"><ExternalLink size={11}/> pegar API key</a>
+      </div>
+
+      <div className="panel p-5 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Send size={16} className="text-[var(--primary)]"/><span className="font-heading text-lg">Publicar fácil — Ayrshare</span>
+          {configured?.ayrshare ? <span className="pill" style={{ background: "rgba(57,192,122,0.14)", color: "var(--success)" }}><Check size={10}/> Configurado</span> : null}
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">Conecte Instagram, TikTok, X e YouTube uma vez no painel do Ayrshare e publique nas quatro pelo Estúdio — sem precisar de aprovação própria de cada rede.</p>
+        <div className="flex gap-2">
+          <input className="ipt" type="password" placeholder="Ayrshare API Key" value={ayrKey} onChange={e=>setAyrKey(e.target.value)}/>
+          <button onClick={saveAyrshare} disabled={savingAyr} className="gold-btn px-4 py-2 text-xs inline-flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50">{savingAyr ? <Loader2 size={12} className="animate-spin"/> : <KeyRound size={12}/>} Salvar</button>
+        </div>
+        <a href="https://app.ayrshare.com/api" target="_blank" rel="noreferrer" className="text-[11px] text-[var(--ice)] inline-flex items-center gap-1 hover:underline mt-2"><ExternalLink size={11}/> pegar API key do Ayrshare</a>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
