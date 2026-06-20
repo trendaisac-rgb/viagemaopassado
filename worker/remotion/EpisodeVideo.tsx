@@ -142,24 +142,43 @@ const CTA: React.FC = () => {
   );
 };
 
-const SceneByType: React.FC<{ b: any; i: number }> = ({ b, i }) => {
+const CueCaptions: React.FC<{ cues: any[]; lead: number; fps: number }> = ({ cues, lead, fps }) => {
+  const f = useCurrentFrame();
+  const t = ((f - lead) / fps) * 1.18; // tempo no audio cru (atempo 1.18)
+  const cue = cues.find((c) => t >= c.start && t < c.end);
+  if (!cue) return null;
+  const words = String(cue.text).split(" ").filter(Boolean);
+  let ki = 0; for (let i = 1; i < words.length; i++) { if (words[i].length > words[ki].length) ki = i; }
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-end", padding: "0 64px 230px" }}>
+      <div style={{ fontFamily: inter, fontWeight: 800, fontSize: 60, textAlign: "center", lineHeight: 1.12, textShadow: "0 6px 30px rgba(0,0,0,0.9)" }}>
+        {words.map((w, i) => (<span key={i} style={{ color: i === ki ? GOLDH : WHITE }}>{w}{i < words.length - 1 ? " " : ""}</span>))}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+const SceneByType: React.FC<{ b: any; i: number; showCaption?: boolean }> = ({ b, i, showCaption = true }) => {
   if (b.visual === "slam") return <Slam text={b.narr} />;
   const src = b.imageUrl;
   const bg = b.visual === "video" ? <VideoScene i={i} src={src} /> : b.visual === "imagem" ? <ImageScene i={i} src={src} /> : <VetorScene i={i} />;
-  return (<AbsoluteFill>{bg}<Caption text={b.narr} /></AbsoluteFill>);
+  return (<AbsoluteFill>{bg}{showCaption ? <Caption text={b.narr} /> : null}</AbsoluteFill>);
 };
 
 export const EpisodeVideo: React.FC<any> = (props) => {
   const { durationInFrames, fps } = useVideoConfig();
   const lead = 45;
   const beats = beatsFrom(props);
+  const cues = Array.isArray(props.cues) ? props.cues : [];
+  const hasCues = cues.length > 0;
   const body = Math.max(1, durationInFrames - lead - 40);
   const per = Math.max(1, Math.floor(body / Math.max(1, beats.length)));
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
       {props.narrationUrl ? <Sequence from={lead}><Audio src={props.narrationUrl} playbackRate={1.18} /></Sequence> : null}
       <Sequence from={0} durationInFrames={lead + fps * 2}><Hook text={(beats[0] && beats[0].narr) || props.title} /></Sequence>
-      {beats.map((b, i) => (<Sequence key={i} from={lead + i * per} durationInFrames={per}><SceneByType b={b} i={i} /></Sequence>))}
+      {beats.map((b, i) => (<Sequence key={i} from={lead + i * per} durationInFrames={per}><SceneByType b={b} i={i} showCaption={!hasCues} /></Sequence>))}
+      {hasCues ? <CueCaptions cues={cues} lead={lead} fps={fps} /> : null}
       <Sequence from={Math.max(0, durationInFrames - 40)}><CTA /></Sequence>
     </AbsoluteFill>
   );
