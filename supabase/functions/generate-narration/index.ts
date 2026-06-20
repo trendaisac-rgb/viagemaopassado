@@ -13,21 +13,30 @@ const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
-    const userClient = createClient(SUPA_URL, ANON, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: "não autenticado" }, 401);
-    const { episode_id } = await req.json();
+    const authz = req.headers.get("Authorization") ?? "";
+    const isService = authz === "Bearer " + SERVICE;
+    const body = await req.json().catch(() => ({}));
+    const episode_id = (body as any).episode_id;
+    let uid = "";
+    if (isService) { uid = (body as any).user_id; }
+    else {
+      const userClient = createClient(SUPA_URL, ANON, { global: { headers: { Authorization: authz } } });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) return json({ error: "nao autenticado" }, 401);
+      uid = user.id;
+    }
+    if (!uid) return json({ error: "user_id faltando" }, 400);
     if (!episode_id) return json({ error: "episode_id faltando" }, 400);
 
     const admin = createClient(SUPA_URL, SERVICE);
-    const { data: ep } = await admin.from("episodes").select("*").eq("id", episode_id).eq("user_id", user.id).single();
-    if (!ep) return json({ error: "episódio não encontrado" }, 404);
-    if (!ep.script) return json({ error: "episódio sem roteiro. Gere o roteiro no Estúdio primeiro." }, 400);
+    const { data: ep } = await admin.from("episodes").select("*").eq("id", episode_id).eq("user_id", uid).single();
+    if (!ep) return json({ error: "episodio nao encontrado" }, 404);
+    if (!ep.script) return json({ error: "episodio sem roteiro. Gere o roteiro no Estudio primeiro." }, 400);
 
     const { data: cr } = await admin.from("integration_credentials").select("client_id, client_secret").eq("platform", "elevenlabs").maybeSingle();
     const voiceId = cr?.client_id ?? Deno.env.get("ELEVENLABS_VOICE_ID");
     const apiKey = cr?.client_secret ?? Deno.env.get("ELEVENLABS_API_KEY");
-    if (!voiceId || !apiKey) return json({ error: "Configure o ElevenLabs (Voice ID + API Key) em Conexões → Configurar apps." }, 400);
+    if (!voiceId || !apiKey) return json({ error: "Configure o ElevenLabs (Voice ID + API Key) em Conexoes." }, 400);
 
     const text = String(ep.script).split("[CORTE]").join(" ").trim();
 
@@ -43,9 +52,9 @@ Deno.serve(async (req) => {
     if (!ttsRes.ok) { const e = await ttsRes.text(); return json({ error: "ElevenLabs: " + e.slice(0, 240) }, 502); }
     const audio = new Uint8Array(await ttsRes.arrayBuffer());
 
-    const path = user.id + "/" + episode_id + ".mp3";
+    const path = uid + "/" + episode_id + ".mp3";
     const up = await admin.storage.from("episodes").upload(path, audio, { contentType: "audio/mpeg", upsert: true });
-    if (up.error) return json({ error: "upload da narração falhou: " + up.error.message }, 502);
+    if (up.error) return json({ error: "upload da narracao falhou: " + up.error.message }, 502);
     await admin.from("episodes").update({ narration_url: path }).eq("id", episode_id);
 
     return json({ ok: true, narration_url: path, bytes: audio.length });
