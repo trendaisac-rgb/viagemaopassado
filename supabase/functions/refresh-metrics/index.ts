@@ -56,24 +56,8 @@ async function upsertChannelMetric(admin: any, uid: string, network: string, fie
   else await admin.from("metrics").insert(row);
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
-  try {
-    const authz = req.headers.get("Authorization") ?? "";
-    const isService = authz === "Bearer " + SERVICE;
-    const reqBody = await req.json().catch(() => ({}));
-    let uid = "";
-    if (isService) { uid = (reqBody as any).user_id; }
-    else {
-      const userClient = createClient(SUPA_URL, ANON, { global: { headers: { Authorization: authz } } });
-      const gu = await userClient.auth.getUser();
-      if (!gu.data.user) return json({ error: "nao autenticado" }, 401);
-      uid = gu.data.user.id;
-    }
-    if (!uid) return json({ error: "user_id faltando" }, 400);
-
-    const admin = createClient(SUPA_URL, SERVICE);
-    const results: Record<string, unknown> = {};
+async function runForUser(admin: any, uid: string) {
+  const results: Record<string, unknown> = {};
 
     try {
       const { data: tok } = await admin.from("social_tokens").select("*").eq("user_id", uid).eq("platform", "youtube").maybeSingle();
@@ -108,7 +92,38 @@ Deno.serve(async (req) => {
       } else results.x = { note: "nao conectado" };
     } catch (e) { results.x = { error: (e as Error).message }; }
 
-    return json({ ok: true, results });
+  return results;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  try {
+    const authz = req.headers.get("Authorization") ?? "";
+    const isService = authz === "Bearer " + SERVICE;
+    const reqBody = await req.json().catch(() => ({}));
+    const admin = createClient(SUPA_URL, SERVICE);
+
+    let uids: string[] = [];
+    if (isService) {
+      const bodyUid = (reqBody as any).user_id;
+      if (bodyUid) uids = [bodyUid];
+      else {
+        const { data } = await admin.from("social_tokens").select("user_id");
+        uids = [...new Set((data ?? []).map((r: any) => r.user_id))];
+      }
+    } else {
+      const userClient = createClient(SUPA_URL, ANON, { global: { headers: { Authorization: authz } } });
+      const gu = await userClient.auth.getUser();
+      if (!gu.data.user) return json({ error: "nao autenticado" }, 401);
+      uids = [gu.data.user.id];
+    }
+    if (uids.length === 0) return json({ ok: true, results: {}, note: "nenhum usuario com tokens" });
+
+    if (uids.length === 1) return json({ ok: true, results: await runForUser(admin, uids[0]) });
+
+    const byUser: Record<string, unknown> = {};
+    for (const u of uids) byUser[u] = await runForUser(admin, u);
+    return json({ ok: true, users: uids.length, byUser });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
