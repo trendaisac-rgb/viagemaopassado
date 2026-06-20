@@ -61,6 +61,19 @@ function EstudioPage() {
     } catch (err: any) { toast.error(err.message); } finally { setBusy(""); }
   }
 
+  async function produceAuto() {
+    if (!topic.trim()) { toast.error("Escreva um tema primeiro."); return; }
+    setBusy("auto");
+    try {
+      const { data, error } = await supabase.functions.invoke("produce-episode", { body: { theme: topic, angle, duration_s: 60 } });
+      if (error) { let m = error.message; try { const j = await (error as any).context?.json?.(); if (j?.error) m = j.error; } catch { /* */ } throw new Error(m); }
+      const eid = (data as any)?.episode_id;
+      if (!eid) throw new Error("nao retornou episodio");
+      setEpisodeId(eid);
+      toast.success("Producao iniciada! A IA esta montando seu video.");
+    } catch (err: any) { toast.error(err.message ?? "Falha ao iniciar producao"); } finally { setBusy(""); }
+  }
+
   async function genScript(id?: string) {
     const eid = id || episodeId; if (!eid) return;
     setBusy("script");
@@ -152,13 +165,19 @@ function EstudioPage() {
           <label className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-heading">Tema do episódio</label>
           <textarea value={topic} onChange={(ev) => setTopic(ev.target.value)} placeholder="Ex.: A última carta de Napoleão antes de Santa Helena"
             className="w-full mt-2 min-h-[90px] rounded-xl border-2 border-border bg-input p-3 text-[15px] focus:outline-none" />
-          <div className="flex flex-wrap gap-3 mt-4">
-            <button onClick={suggestAngles} disabled={!!busy} className="ghost-btn px-5 py-3 text-sm inline-flex items-center gap-2">
-              {busy === "angles" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Sugerir ângulos
+          <div className="flex flex-col gap-3 mt-4">
+            <button onClick={produceAuto} disabled={!!busy} className="gold-btn px-6 py-4 text-base inline-flex items-center justify-center gap-2 w-full">
+              {busy === "auto" ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />} Gerar vídeo automático (1 clique)
             </button>
-            <button onClick={startEpisode} disabled={!!busy} className="gold-btn px-6 py-3 text-sm inline-flex items-center gap-2">
-              {(busy === "start" || busy === "script") ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />} Começar episódio
-            </button>
+            <div className="text-[11px] text-center text-muted-foreground">a IA escreve o roteiro, narra (Victor Power), gera as imagens e renderiza — você só acompanha</div>
+            <div className="flex flex-wrap gap-3 justify-center mt-1">
+              <button onClick={suggestAngles} disabled={!!busy} className="ghost-btn px-4 py-2 text-xs inline-flex items-center gap-2">
+                {busy === "angles" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Sugerir ângulos
+              </button>
+              <button onClick={startEpisode} disabled={!!busy} className="ghost-btn px-4 py-2 text-xs inline-flex items-center gap-2">
+                {(busy === "start" || busy === "script") ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />} Modo manual (passo a passo)
+              </button>
+            </div>
           </div>
           {angles.length > 0 && (
             <div className="mt-6">
@@ -196,6 +215,14 @@ function EstudioPage() {
         </div>
         <button onClick={reset} className="ghost-btn px-4 py-2 text-sm inline-flex items-center gap-2"><RotateCcw size={14} /> Novo</button>
       </div>
+
+      {rendering && (
+        <div className="panel-inset p-4 mb-4">
+          <div className="flex items-center gap-2 text-sm font-semibold"><Loader2 size={16} className="animate-spin text-[var(--primary)]" /> Produção automática em andamento{e?.progress_step ? " — " + e.progress_step : ""}</div>
+          <div className="mt-2 h-2 rounded-full bg-[var(--panel-2)] overflow-hidden"><div className="h-full rounded-full" style={{ width: (e?.progress_pct ?? 10) + "%", background: "var(--primary)" }} /></div>
+          <div className="text-xs text-muted-foreground mt-2">Deixe o <b>worker</b> rodando na sua máquina. Esta tela atualiza sozinha.</div>
+        </div>
+      )}
 
       <Stage n={1} icon={<FileText size={18} />} title="Roteiro" status={done(hasScript)}>
         {!hasScript ? (
