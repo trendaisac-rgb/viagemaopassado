@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Audio, Img, Sequence, useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
+import { AbsoluteFill, Audio, Img, Sequence, useCurrentFrame, useVideoConfig, interpolate, spring, staticFile } from "remotion";
 import { getAudioDurationInSeconds } from "@remotion/media-utils";
 import { loadFont as loadAnton } from "@remotion/google-fonts/Anton";
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
@@ -176,6 +176,7 @@ export const EpisodeVideo: React.FC<any> = (props) => {
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
       {props.narrationUrl ? <Sequence from={lead}><Audio src={props.narrationUrl} playbackRate={1.18} /></Sequence> : null}
+      {props.hasTrilha ? <Audio src={staticFile("trilha.wav")} volume={0.18} /> : null}
       <Sequence from={0} durationInFrames={lead + fps * 2}><Hook text={(beats[0] && beats[0].narr) || props.title} /></Sequence>
       {beats.map((b, i) => (<Sequence key={i} from={lead + i * per} durationInFrames={per}><SceneByType b={b} i={i} showCaption={!hasCues} /></Sequence>))}
       {hasCues ? <CueCaptions cues={cues} lead={lead} fps={fps} /> : null}
