@@ -71,21 +71,21 @@ Deno.serve(async (req) => {
       const used = new Set((ex ?? []).map((r: any) => String(r.theme).trim().toLowerCase()));
 
       let ideas: { theme: string; angle: string }[] = [];
-      const apiKey = Deno.env.get("LOVABLE_API_KEY");
-      if (apiKey) {
+      const avoid = [...used].slice(0, 40).join("; ") || "(nenhum)";
+      const sys = "Roteirista-chefe do canal de história 'Viagem ao Passado'. Temas de Shorts surpreendentes e variados (mistérios, curiosidades, 'será que...', como foi feito), PT-BR, ganchos fortes, sem repetir.";
+      const usr = "Gere " + (count + 2) + " ideias DISTINTAS no tom de Operação Mincemeat, Paradoxo de Fermi, como as pirâmides foram construídas. Evite repetir estes: " + avoid + ". Responda APENAS um JSON com uma chave ideas (lista de objetos com theme e angle), sem markdown.";
+      const { data: oaCred } = await admin.from("integration_credentials").select("client_secret").eq("platform", "openai").maybeSingle();
+      const oaKey = oaCred?.client_secret ?? Deno.env.get("OPENAI_API_KEY");
+      async function gen(url: string, headers: Record<string,string>, model: string) {
         try {
-          const avoid = [...used].slice(0, 40).join("; ") || "(nenhum)";
-          const res = await fetch(GATEWAY_URL, {
-            method: "POST",
-            headers: { "Lovable-API-Key": apiKey, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: MODEL, temperature: 1.05, response_format: { type: "json_object" }, messages: [
-              { role: "system", content: "Roteirista-chefe do canal de história 'Viagem ao Passado'. Temas de Shorts surpreendentes e variados (mistérios, curiosidades, 'será que...', como foi feito), PT-BR, ganchos fortes, sem repetir." },
-              { role: "user", content: "Gere " + (count + 2) + " ideias DISTINTAS no tom de Operação Mincemeat, Paradoxo de Fermi, como as pirâmides foram construídas. Evite repetir estes: " + avoid + ". Responda APENAS um JSON com uma chave ideas (lista de objetos com theme e angle), sem markdown." },
-            ] }),
-          });
-          if (res.ok) { const d = await res.json(); const p = JSON.parse(d?.choices?.[0]?.message?.content ?? "{}"); if (Array.isArray(p.ideas)) ideas = p.ideas; }
-        } catch (_) { /* banco */ }
+          const res = await fetch(url, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ model, temperature: 1.05, response_format: { type: "json_object" }, messages: [{ role: "system", content: sys }, { role: "user", content: usr }] }) });
+          if (!res.ok) return;
+          const d = await res.json(); const p = JSON.parse(d?.choices?.[0]?.message?.content ?? "{}"); if (Array.isArray(p.ideas)) ideas = p.ideas;
+        } catch (_) {}
       }
+      if (oaKey) await gen("https://api.openai.com/v1/chat/completions", { Authorization: "Bearer " + oaKey }, "gpt-4o-mini");
+      const lovKey = Deno.env.get("LOVABLE_API_KEY");
+      if (ideas.length === 0 && lovKey) await gen(GATEWAY_URL, { "Lovable-API-Key": lovKey }, MODEL);
       ideas = ideas.filter((i) => i?.theme && !used.has(String(i.theme).trim().toLowerCase()));
       if (ideas.length < count) {
         const pool = THEMES.filter((t) => !used.has(t.theme.trim().toLowerCase())).sort(() => Math.random() - 0.5);

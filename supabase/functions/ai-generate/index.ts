@@ -1,6 +1,9 @@
+import { createClient } from "jsr:@supabase/supabase-js@2";
 // AI generation — FIEL à skill vap-video-remotion (Lei da Edição do canal Viagem ao Passado).
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
+const SUPA_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -70,22 +73,24 @@ Deno.serve(async (req: Request) => {
   try {
     const { kind, input } = await req.json() as { kind: Kind; input: any };
     if (!kind) throw new Error("Missing kind");
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return Response.json(mockResponse(kind, input), { headers: corsHeaders });
-
     const { system, user } = buildPrompt(kind, input);
-    const res = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: { "Lovable-API-Key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages: [{ role: "system", content: system }, { role: "user", content: user }], response_format: { type: "json_object" } }),
-    });
-    if (res.status === 429) return new Response(JSON.stringify({ error: "Limite de IA atingido. Tente em instantes." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (!res.ok) return Response.json(mockResponse(kind, input), { headers: corsHeaders });
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content ?? "{}";
-    let parsed;
-    try { parsed = JSON.parse(content); } catch { parsed = mockResponse(kind, input); }
+    const admin = createClient(SUPA_URL, SERVICE);
+    const { data: oaCred } = await admin.from("integration_credentials").select("client_secret").eq("platform", "openai").maybeSingle();
+    const oaKey = oaCred?.client_secret ?? Deno.env.get("OPENAI_API_KEY");
+
+    async function call(url: string, headers: Record<string,string>, model: string) {
+      try {
+        const res = await fetch(url, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }], response_format: { type: "json_object" } }) });
+        if (!res.ok) return null;
+        const d = await res.json();
+        return JSON.parse(d?.choices?.[0]?.message?.content ?? "{}");
+      } catch { return null; }
+    }
+
+    let parsed: any = null;
+    if (oaKey) parsed = await call("https://api.openai.com/v1/chat/completions", { Authorization: "Bearer " + oaKey }, "gpt-4o-mini");
+    if (!parsed) { const lk = Deno.env.get("LOVABLE_API_KEY"); if (lk) parsed = await call(GATEWAY_URL, { "Lovable-API-Key": lk }, MODEL); }
+    if (!parsed) parsed = mockResponse(kind, input);
     return Response.json(parsed, { headers: corsHeaders });
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });

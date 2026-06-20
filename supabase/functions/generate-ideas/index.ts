@@ -79,13 +79,25 @@ Deno.serve(async (req) => {
     const used = new Set((ex ?? []).map((r: any) => String(r.theme).trim().toLowerCase()));
 
     let ideas: { theme: string; angle: string }[] = [];
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (apiKey) {
+    const { system, user: u } = buildPrompt(count + 3, niche, [...used] as string[]);
+    const { data: oaCred } = await admin.from("integration_credentials").select("client_secret").eq("platform", "openai").maybeSingle();
+    const oaKey = oaCred?.client_secret ?? Deno.env.get("OPENAI_API_KEY");
+    if (oaKey) {
       try {
-        const { system, user: u } = buildPrompt(count + 3, niche, [...used] as string[]);
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + oaKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "gpt-4o-mini", temperature: 1.05, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: u }] }),
+        });
+        if (res.ok) { const d = await res.json(); const p = JSON.parse(d?.choices?.[0]?.message?.content ?? "{}"); if (Array.isArray(p.ideas)) ideas = p.ideas; }
+      } catch (_) { /* cai no proximo */ }
+    }
+    const lovKey = Deno.env.get("LOVABLE_API_KEY");
+    if (ideas.length === 0 && lovKey) {
+      try {
         const res = await fetch(GATEWAY_URL, {
           method: "POST",
-          headers: { "Lovable-API-Key": apiKey, "Content-Type": "application/json" },
+          headers: { "Lovable-API-Key": lovKey, "Content-Type": "application/json" },
           body: JSON.stringify({ model: MODEL, temperature: 1.05, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: u }] }),
         });
         if (res.ok) { const d = await res.json(); const p = JSON.parse(d?.choices?.[0]?.message?.content ?? "{}"); if (Array.isArray(p.ideas)) ideas = p.ideas; }
