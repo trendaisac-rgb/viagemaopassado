@@ -57,11 +57,40 @@ async function claimJob() {
   return upd && upd.length ? upd[0] : null;
 }
 
+async function callFn(fn, body) {
+  const res = await fetch(SUPABASE_URL + "/functions/v1/" + fn, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + KEY, "apikey": KEY },
+    body: JSON.stringify(body),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.error) throw new Error(fn + ": " + (j.error || res.status));
+  return j;
+}
+
 async function processJob(job) {
-  const { data: ep } = await admin.from("episodes").select("*").eq("id", job.episode_id).single();
+  let { data: ep } = await admin.from("episodes").select("*").eq("id", job.episode_id).single();
   if (!ep) throw new Error("episódio não encontrado");
   if (!ep.script) throw new Error("episódio sem roteiro — gere no Estúdio");
-  if (!ep.narration_url) throw new Error("episódio sem narração — gere a narração no portal");
+
+  // FULL AUTO: garante narração + imagens antes de renderizar
+  if (!ep.narration_url) {
+    console.log("→ narração (Victor Power)…");
+    await admin.from("episodes").update({ status: "generating", progress_step: "narração", progress_pct: 50 }).eq("id", ep.id);
+    await callFn("generate-narration", { episode_id: ep.id, user_id: ep.user_id });
+    ({ data: ep } = await admin.from("episodes").select("*").eq("id", job.episode_id).single());
+  }
+  const sb = Array.isArray(ep.storyboard) ? ep.storyboard : [];
+  const needsImg = sb.some((b) => b && (b.visual === "imagem" || b.visual === "video") && !b.image);
+  if (needsImg) {
+    console.log("→ imagens (IA)…");
+    await admin.from("episodes").update({ status: "generating", progress_step: "imagens", progress_pct: 70 }).eq("id", ep.id);
+    try { await callFn("generate-assets", { episode_id: ep.id, user_id: ep.user_id }); } catch (e) { console.warn("assets:", e.message); }
+    ({ data: ep } = await admin.from("episodes").select("*").eq("id", job.episode_id).single());
+  }
+  if (!ep.narration_url) throw new Error("narração indisponível — configure a chave ElevenLabs em Conexões");
+  await admin.from("episodes").update({ status: "generating", progress_step: "render", progress_pct: 85 }).eq("id", ep.id);
+
   const { data: signed } = await admin.storage.from("episodes").createSignedUrl(ep.narration_url, 3600);
   const narrationUrl = signed && signed.signedUrl;
   if (!narrationUrl) throw new Error("não consegui assinar a narração");
