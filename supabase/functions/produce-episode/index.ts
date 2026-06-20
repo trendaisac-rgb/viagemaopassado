@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
     await admin.from("episodes").update({
       script: scriptRes.script ?? null,
       hook: scriptRes.hook ?? null,
+      question: scriptRes.question ?? null,
       fact_checks: scriptRes.fact_checks ?? null,
       storyboard: scriptRes.storyboard ?? null,
       caption: captionRes.caption ?? null,

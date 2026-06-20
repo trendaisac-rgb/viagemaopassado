@@ -130,14 +130,14 @@ const Hook: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-const CTA: React.FC = () => {
+const CTA: React.FC<{ question?: string }> = ({ question }) => {
   const f = useCurrentFrame();
   const s = spring({ frame: f, fps: 30, config: { damping: 200 } });
   return (
-    <AbsoluteFill style={{ background: BG, alignItems: "center", justifyContent: "center", transform: `scale(${0.92 + 0.08 * s})` }}>
-      <div style={{ width: 120, height: 120, borderRadius: "50%", border: `4px solid ${GOLD}`, marginBottom: 28, display: "grid", placeItems: "center", color: GOLD, fontFamily: anton, fontSize: 60 }}>✦</div>
-      <div style={{ fontFamily: anton, color: WHITE, fontSize: 64, textTransform: "uppercase" }}>Viagem ao Passado</div>
-      <div style={{ fontFamily: anton, color: GOLD, fontSize: 48, marginTop: 14 }}>+ SEGUIR</div>
+    <AbsoluteFill style={{ background: BG, alignItems: "center", justifyContent: "center", padding: "0 70px", transform: `scale(${0.92 + 0.08 * s})` }}>
+      <div style={{ width: 110, height: 110, borderRadius: "50%", border: `4px solid ${GOLD}`, marginBottom: 26, display: "grid", placeItems: "center", color: GOLD, fontFamily: anton, fontSize: 56 }}>✦</div>
+      {question ? <div style={{ fontFamily: anton, color: WHITE, fontSize: 56, textAlign: "center", lineHeight: 1.08, textTransform: "uppercase", marginBottom: 22, textShadow: `0 0 30px ${GOLD}55` }}>{question}</div> : <div style={{ fontFamily: anton, color: WHITE, fontSize: 64, textTransform: "uppercase" }}>Viagem ao Passado</div>}
+      <div style={{ fontFamily: anton, color: GOLD, fontSize: 50 }}>+ SEGUIR</div>
     </AbsoluteFill>
   );
 };
@@ -180,7 +180,7 @@ export const EpisodeVideo: React.FC<any> = (props) => {
       <Sequence from={0} durationInFrames={lead + fps * 2}><Hook text={(beats[0] && beats[0].narr) || props.title} /></Sequence>
       {beats.map((b, i) => (<Sequence key={i} from={lead + i * per} durationInFrames={per}><SceneByType b={b} i={i} showCaption={!hasCues} /></Sequence>))}
       {hasCues ? <CueCaptions cues={cues} lead={lead} fps={fps} /> : null}
-      <Sequence from={Math.max(0, durationInFrames - 40)}><CTA /></Sequence>
+      <Sequence from={Math.max(0, durationInFrames - 40)}><CTA question={props.question} /></Sequence>
     </AbsoluteFill>
   );
 };

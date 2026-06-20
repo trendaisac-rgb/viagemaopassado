@@ -130,7 +130,7 @@ async function processJob(job) {
   if (!narrationUrl) throw new Error("não consegui assinar a narração");
 
   const url = await getBundle();
-  const inputProps = { script: ep.script, title: ep.title || "Viagem ao Passado", narrationUrl, storyboard: ep.storyboard || null, cues: ep.cues || null, hasTrilha: true };
+  const inputProps = { script: ep.script, title: ep.title || "Viagem ao Passado", narrationUrl, storyboard: ep.storyboard || null, cues: ep.cues || null, question: ep.question || null, hasTrilha: true };
   if (Array.isArray(inputProps.storyboard)) {
     for (const b of inputProps.storyboard) {
       if (b && b.image) { try { const sg = await admin.storage.from("episodes").createSignedUrl(b.image, 3600); if (sg.data && sg.data.signedUrl) b.imageUrl = sg.data.signedUrl; } catch (_) {} }
