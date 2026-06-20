@@ -24,7 +24,7 @@ function buildPrompt(kind: Kind, input: any): { system: string; user: string } {
   if (kind === "script") {
     return {
       system: SKILL + " Você escreve o roteiro de NARRAÇÃO e o storyboard seguindo a Lei da Edição à risca.",
-      user: `Tema: ${input.topic}. Ângulo: ${input.angle}. Duração alvo: ${input.duration_s ?? 45}s. Escreva a NARRAÇÃO em 8–14 beats curtos separados por [CORTE]. Beat 1 = GANCHO (<2s). Siga o arco gancho→conflito→resolução→punchline e termine no CTA '+ SEGUIR'. Monte um storyboard 1-cena-por-beat respeitando o PADRÃO FIXO de mídia: exatamente 2 beats com visual "video" (hook e clímax), 2 beats com "imagem" (os 2 planos-herói: personagem e lugar), os demais "vetor", e insira 1–2 "slam" nas viradas. Inclua 3 verificações de fato com fonte. Responda APENAS com JSON: {"script":"beat1 [CORTE] beat2 ...","hook":"primeira frase","fact_checks":["fato — fonte","fato — fonte","fato — fonte"],"storyboard":[{"narr":"texto falado do beat","visual":"video|imagem|vetor|slam","desc":"prompt visual cinematográfico escuro+dourado 9:16 sem texto"}]} sem markdown.`,
+      user: `Tema: ${input.topic}. Ângulo: ${input.angle}. Duração alvo: ${input.duration_s ?? 45}s. Escreva a NARRAÇÃO em 8–14 beats curtos separados por [CORTE]. Beat 1 = GANCHO (<2s). Siga o arco gancho→conflito→resolução→punchline e termine no CTA '+ SEGUIR'. Plante CEDO (por volta do 2º beat) uma PERGUNTA DE OPINIÃO BINÁRIA (escolha um lado, sem resposta certa) e repita-a no card final — é a semente dos comentários. Monte um storyboard 1-cena-por-beat respeitando o PADRÃO FIXO de mídia: exatamente 2 beats com visual "video" (hook e clímax), 2 beats com "imagem" (os 2 planos-herói: personagem e lugar), os demais "vetor", e insira 1–2 "slam" nas viradas. Inclua 3 verificações de fato com fonte. Responda APENAS com JSON: {"script":"beat1 [CORTE] beat2 ...","hook":"primeira frase","question":"pergunta de opiniao binaria curta para o card final","fact_checks":["fato — fonte","fato — fonte","fato — fonte"],"storyboard":[{"narr":"texto falado do beat","visual":"video|imagem|vetor|slam","desc":"prompt visual cinematográfico escuro+dourado 9:16 sem texto"}]} sem markdown.`,
     };
   }
   return {
@@ -45,6 +45,7 @@ function mockResponse(kind: Kind, input: any) {
   ]};
   if (kind === "script") return {
     hook: `Você nunca ouviu isso sobre ${topic}.`,
+    question: `E você: o que pesa mais nessa história sobre ${topic}?`,
     script: `Você nunca ouviu isso sobre ${topic}. [CORTE] ${angle}. [CORTE] Tudo começou com uma decisão que ninguém esperava. [CORTE] No auge da tensão, a virada. [CORTE] E o detalhe que muda tudo estava escondido à vista de todos. [CORTE] O desfecho mudou o rumo da história. [CORTE] Se isso te surpreendeu, segue o Viagem ao Passado.`,
     fact_checks: [
       "Datas e nomes conferidos em fontes historiográficas.",
