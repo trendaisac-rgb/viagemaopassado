@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
             headers: { "Lovable-API-Key": apiKey, "Content-Type": "application/json" },
             body: JSON.stringify({ model: MODEL, temperature: 1.05, response_format: { type: "json_object" }, messages: [
               { role: "system", content: "Roteirista-chefe do canal de história 'Viagem ao Passado'. Temas de Shorts surpreendentes e variados (mistérios, curiosidades, 'será que...', como foi feito), PT-BR, ganchos fortes, sem repetir." },
-              { role: "user", content: "Gere " + (count + 2) + " ideias DISTINTAS no tom de 'Operação Mincemeat', 'Paradoxo de Fermi', 'como as pirâmides foram construídas'. NÃO repita: " + avoid + ". JSON {\"ideas\":[{\"theme\":\"...\",\"angle\":\"...\"}]} sem markdown." },
+              { role: "user", content: "Gere " + (count + 2) + " ideias DISTINTAS no tom de Operação Mincemeat, Paradoxo de Fermi, como as pirâmides foram construídas. Evite repetir estes: " + avoid + ". Responda APENAS um JSON com uma chave ideas (lista de objetos com theme e angle), sem markdown." },
             ] }),
           });
           if (res.ok) { const d = await res.json(); const p = JSON.parse(d?.choices?.[0]?.message?.content ?? "{}"); if (Array.isArray(p.ideas)) ideas = p.ideas; }
