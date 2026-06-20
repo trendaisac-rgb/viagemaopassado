@@ -2,12 +2,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const cors: Record<string,string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-key",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const SUPA_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
+const CRON_KEY = "vap-cron-7c3f9a21";
 const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -99,7 +100,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const authz = req.headers.get("Authorization") ?? "";
-    const isService = authz === "Bearer " + SERVICE;
+    const isCron = req.headers.get("x-cron-key") === CRON_KEY;
+    const isService = isCron || authz === "Bearer " + SERVICE;
     const reqBody = await req.json().catch(() => ({}));
     const admin = createClient(SUPA_URL, SERVICE);
 
